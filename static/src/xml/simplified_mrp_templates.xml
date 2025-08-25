@@ -206,12 +206,11 @@
           </div>
           <div class="o_smrp_actions o_smrp_actions--center">
             <button class="o_smrp_btn confirm o_smrp_btn--xl"
-                    autofocus
+                    t-att-autofocus="true"
                     t-on-click="() => this.resetWizard()">Crear nueva orden</button>
           </div>
         </div>
       </t>
-
 
     </div>
   </t>
