@@ -5,9 +5,36 @@ import logging
 
 _logger = logging.getLogger(__name__)
 
+DEBUG_SMRP = True  # pon False para silenciar toasts
+
 class AqSimplifiedMrpApi(models.TransientModel):
     _name = 'aq.simplified.mrp.api'
     _description = 'API Simplificada de MRP (UI paso a paso)'
+
+    # ---------- Debug helpers ----------
+    def _toast(self, msg, title='MRP Debug', level='info', sticky=False):
+        if not DEBUG_SMRP:
+            return
+        try:
+            if level == 'success':
+                self.env.user.notify_success(message=msg, title=title, sticky=sticky)
+            elif level == 'warning':
+                self.env.user.notify_warning(message=msg, title=title, sticky=sticky)
+            else:
+                self.env.user.notify_info(message=msg, title=title, sticky=sticky)
+        except Exception as e:
+            _logger.debug("Toast failed: %s", e)
+
+    def _logdbg(self, *parts):
+        txt = " | ".join(str(p) for p in parts)
+        _logger.warning("SMRPDBG: %s", txt)
+
+    @staticmethod
+    def _grp_sum(d, base):
+        """Soporta claves 'quantity_sum' y 'quantity' indistintamente."""
+        return (d.get(f'{base}_sum')
+                if d.get(f'{base}_sum') is not None
+                else (d.get(base) or 0.0))
 
     # ---------- Helpers ----------
     @api.model
@@ -37,10 +64,10 @@ class AqSimplifiedMrpApi(models.TransientModel):
     def get_warehouses(self):
         try:
             ws = self.env['stock.warehouse'].search([])
-            return [{'id': w.id, 'name': w.name} for w in ws]
+            return [{'id': w.id, 'name': w.name, 'code': w.code} for w in ws]
         except Exception as e:
-            _logger.error("Error getting warehouses: %s", str(e))
-            raise UserError(_('Error obteniendo almacenes: %s') % str(e))
+            _logger.error("Error getting warehouses: %s", e)
+            raise UserError(_('Error obteniendo almacenes: %s') % e)
 
     @api.model
     def get_finished_products(self, query='', limit=20):
@@ -57,12 +84,11 @@ class AqSimplifiedMrpApi(models.TransientModel):
                 'uom_name': p.uom_id.name,
             } for p in prods]
         except Exception as e:
-            _logger.error("Error searching products: %s", str(e))
-            raise UserError(_('Error buscando productos: %s') % str(e))
+            _logger.error("Error searching products: %s", e)
+            raise UserError(_('Error buscando productos: %s') % e)
 
     @api.model
     def search_components(self, query='', limit=20):
-        """Buscar productos para usar como ingredientes."""
         try:
             dom = [('type', 'in', ['product', 'consu'])]
             if query and query.strip():
@@ -76,12 +102,11 @@ class AqSimplifiedMrpApi(models.TransientModel):
                 'uom_name': p.uom_id.name,
             } for p in prods]
         except Exception as e:
-            _logger.error("Error searching components: %s", str(e))
-            raise UserError(_('Error buscando ingredientes: %s') % str(e))
+            _logger.error("Error searching components: %s", e)
+            raise UserError(_('Error buscando ingredientes: %s') % e)
 
     @api.model
     def get_bom_components(self, product_id, qty=1.0):
-        """Prefill desde BOM. El usuario puede editar luego."""
         try:
             product = self.env['product.product'].browse(int(product_id))
             if not product.exists():
@@ -104,39 +129,129 @@ class AqSimplifiedMrpApi(models.TransientModel):
                 })
             return {'bom_id': bom.id, 'components': comps}
         except Exception as e:
-            _logger.error("Error getting BOM components: %s", str(e))
-            raise UserError(_('Error obteniendo componentes BOM: %s') % str(e))
+            _logger.error("Error getting BOM components: %s", e)
+            raise UserError(_('Error obteniendo componentes BOM: %s') % e)
 
     @api.model
     def get_lots(self, product_id, warehouse_id, limit=40):
+        """Disponibilidad por lote bajo TODAS las ubicaciones internas del almacén:
+           sum(quantity) - sum(reserved_quantity). Con trazas de depuración robustas."""
         try:
             product = self.env['product.product'].browse(int(product_id))
             wh = self.env['stock.warehouse'].browse(int(warehouse_id))
             if not product.exists() or not wh.exists():
+                self._logdbg("get_lots", "producto/almacén inexistente", product_id, warehouse_id)
+                self._toast(_("DBG: producto/almacén inexistente"), level='warning', sticky=True)
                 return []
-            Quant = self.env['stock.quant']
+
+            view_loc = wh.view_location_id
+            if not view_loc:
+                self._logdbg("get_lots", "warehouse sin view_location_id", wh.id, wh.name)
+                self._toast(_("DBG: almacén sin ubicación raíz"), level='warning', sticky=True)
+                return []
+
+            Quant = self.env['stock.quant'].sudo()
             domain = [
                 ('product_id', '=', product.id),
-                ('location_id', 'child_of', wh.lot_stock_id.id),
-                ('quantity', '>', 0),
+                ('location_id', 'child_of', view_loc.id),
+                ('location_id.usage', '=', 'internal'),
                 ('lot_id', '!=', False),
+                ('quantity', '>', 0),
             ]
-            data = Quant.read_group(domain, ['quantity:sum'], ['lot_id'], limit=int(limit), orderby='lot_id asc')
-            lots = []
-            for row in data:
-                if row.get('lot_id'):
-                    lot = self.env['stock.production.lot'].browse(row['lot_id'][0])
+
+            # Muestreo de quants previos al group-by
+            sample_quants = Quant.search(domain, limit=10, order='quantity desc')
+            for q in sample_quants:
+                self._logdbg(
+                    "quant", f"prod={q.product_id.display_name}",
+                    f"lot={q.lot_id.display_name or '-'}",
+                    f"qty={q.quantity}", f"res={q.reserved_quantity}",
+                    f"loc={q.location_id.complete_name}({q.location_id.usage})"
+                )
+
+            groups = Quant.read_group(
+                domain,
+                ['quantity:sum', 'reserved_quantity:sum'],
+                ['lot_id'],
+                limit=int(limit),
+            )
+            self._logdbg("read_group result count", len(groups))
+            for g in groups:
+                self._logdbg("group keys", list(g.keys()))
+
+            Lot = self.env['stock.lot'].sudo()
+            out, total_qty = [], 0.0
+            for g in groups:
+                lot_id = g.get('lot_id') and g['lot_id'][0]
+                qsum = self._grp_sum(g, 'quantity')
+                rsum = self._grp_sum(g, 'reserved_quantity')
+                qty = (qsum or 0.0) - (rsum or 0.0)
+                self._logdbg("lot group", g.get('lot_id') and g['lot_id'][1], "qsum=", qsum, "rsum=", rsum, "avail=", qty)
+                if lot_id and qty > 0:
+                    lot = Lot.browse(lot_id)
                     if lot.exists():
-                        lots.append({'id': lot.id, 'name': lot.name, 'qty_available': row.get('quantity_sum', 0)})
-            return lots
+                        out.append({'id': lot.id, 'name': lot.display_name, 'qty_available': qty})
+                        total_qty += qty
+
+            # Fallback si el producto no lleva tracking y el stock quedó sin lote
+            if not out and product.tracking == 'none':
+                g2 = Quant.read_group(
+                    [
+                        ('product_id', '=', product.id),
+                        ('location_id', 'child_of', view_loc.id),
+                        ('location_id.usage', '=', 'internal'),
+                        ('lot_id', '=', False),
+                        ('quantity', '>', 0),
+                    ],
+                    ['quantity:sum', 'reserved_quantity:sum'],
+                    [],
+                )
+                qsum2 = g2 and self._grp_sum(g2[0], 'quantity') or 0.0
+                rsum2 = g2 and self._grp_sum(g2[0], 'reserved_quantity') or 0.0
+                qty2 = (qsum2 or 0.0) - (rsum2 or 0.0)
+                self._logdbg("fallback no-tracking", "qsum=", qsum2, "rsum=", rsum2, "avail=", qty2)
+                if qty2 > 0:
+                    out = [{'id': False, 'name': _('Sin lote'), 'qty_available': qty2}]
+                    total_qty = qty2
+
+            # Diagnóstico: stock en otras ubicaciones internas
+            if not out:
+                others = Quant.read_group(
+                    [
+                        ('product_id', '=', product.id),
+                        ('location_id.usage', '=', 'internal'),
+                        ('quantity', '>', 0),
+                    ],
+                    ['location_id', 'quantity:sum'],
+                    ['location_id'],
+                    limit=5
+                )
+                pieces = []
+                for x in others:
+                    loc = x.get('location_id') and x['location_id'][0]
+                    if not loc:
+                        continue
+                    qty_here = self._grp_sum(x, 'quantity')
+                    pieces.append(f"{self.env['stock.location'].browse(loc).complete_name}: {qty_here}")
+                self._logdbg("stock en otras ubicaciones", ", ".join(pieces) or "sin datos")
+
+            out.sort(key=lambda x: x['name'])
+
+            self._toast(
+                _("DBG Lotes » Prod: %(p)s [%(trk)s] | WH: %(w)s | child_of=%(loc)s | grupos=%(g)d | devueltos=%(r)d | total=%(t).2f",
+                  p=product.display_name, trk=product.tracking, w=wh.code or wh.name,
+                  loc=view_loc.complete_name, g=len(groups), r=len(out), t=total_qty),
+                level='info', sticky=True
+            )
+            return out[:int(limit)]
         except Exception as e:
-            _logger.error("Error getting lots: %s", str(e))
-            raise UserError(_('Error obteniendo lotes: %s') % str(e))
+            _logger.error("Error getting lots: %s", e)
+            self._toast(_("DBG Error obteniendo lotes: %s") % e, level='warning', sticky=True)
+            raise UserError(_('Error obteniendo lotes: %s') % e)
 
     # ---------- Create MO ----------
     @api.model
     def create_mo(self, payload):
-        """Crea OP con validación de ingredientes y override de cantidades."""
         try:
             warehouse_id = payload.get('warehouse_id')
             product_id = payload.get('product_id')
@@ -144,10 +259,7 @@ class AqSimplifiedMrpApi(models.TransientModel):
             bom_id = payload.get('bom_id')
             components_map = payload.get('components') or []
 
-            if not warehouse_id or not product_id:
-                raise UserError(_('Faltan datos obligatorios'))
-
-            # Debe haber al menos un ingrediente con cantidad > 0
+            # Normaliza componentes > 0
             comps_clean = []
             for c in components_map:
                 if not c:
@@ -157,6 +269,11 @@ class AqSimplifiedMrpApi(models.TransientModel):
                 lot = int(c.get('lot_id')) if c.get('lot_id') else False
                 if pid and qty > 0:
                     comps_clean.append({'product_id': pid, 'qty': qty, 'lot_id': lot})
+
+            self._logdbg("create_mo payload", f"wh={warehouse_id}", f"prod={product_id}", f"qty={product_qty}",
+                         f"bom={bom_id}", f"comps={len(comps_clean)}")
+            if not warehouse_id or not product_id:
+                raise UserError(_('Faltan datos obligatorios'))
             if not comps_clean:
                 raise UserError(_('Debes capturar al menos un ingrediente con cantidad mayor a cero.'))
 
@@ -186,21 +303,23 @@ class AqSimplifiedMrpApi(models.TransientModel):
                 'origin': 'Simplified UI',
             }
             mo = Production.create(mo_vals)
-            mo.action_confirm()  # genera movimientos si hay BOM
+            self._logdbg("MO creado", mo.id, mo.name)
 
-            # Index existentes
+            mo.action_confirm()
+            self._logdbg("MO confirmado", "moves:", len(mo.move_raw_ids))
+
             existing_by_pid = {m.product_id.id: m for m in mo.move_raw_ids}
 
-            # Actualizar o crear movimientos según componentes capturados
             for item in comps_clean:
                 pid = item['product_id']
                 qty_req = item['qty']
                 prod = self.env['product.product'].browse(pid)
-                if pid in existing_by_pid:
-                    move = existing_by_pid[pid]
+                move = existing_by_pid.get(pid)
+                if move:
+                    self._logdbg("upd move", move.id, prod.display_name, "qty", qty_req)
                     move.product_uom_qty = qty_req
                 else:
-                    self.env['stock.move'].create({
+                    move = self.env['stock.move'].create({
                         'name': prod.display_name,
                         'product_id': pid,
                         'product_uom_qty': qty_req,
@@ -210,40 +329,49 @@ class AqSimplifiedMrpApi(models.TransientModel):
                         'location_id': mo.location_src_id.id,
                         'location_dest_id': mo.location_dest_id.id,
                     })
+                    existing_by_pid[pid] = move
+                    self._logdbg("new move", move.id, prod.display_name, "qty", qty_req)
 
-            # Reasignar después de ajustes
             try:
                 mo.action_assign()
+                self._logdbg("MO asignado", "moves:", [(m.id, float(m.reserved_availability)) for m in mo.move_raw_ids])
             except Exception as assign_error:
-                _logger.warning("Could not assign stock automatically: %s", str(assign_error))
+                self._logdbg("assign error", assign_error)
+                _logger.warning("Could not assign stock automatically: %s", assign_error)
 
-            # Lotes opcionales
             lot_by_pid = {i['product_id']: i.get('lot_id') for i in comps_clean if i.get('lot_id')}
-            if lot_by_pid:
-                for move in mo.move_raw_ids:
-                    pid = move.product_id.id
-                    lot_id = lot_by_pid.get(pid)
-                    if not lot_id:
-                        continue
-                    if move.move_line_ids:
-                        # actualizar líneas existentes
-                        for ml in move.move_line_ids:
-                            ml.lot_id = lot_id
-                    else:
-                        # crear línea si no existe
-                        self.env['stock.move.line'].create({
-                            'move_id': move.id,
-                            'company_id': move.company_id.id,
-                            'product_id': pid,
-                            'lot_id': lot_id,
-                            'location_id': move.location_id.id,
-                            'location_dest_id': move.location_dest_id.id,
-                            'product_uom_id': move.product_uom.id,
-                            'qty_done': 0.0,
-                        })
+            qty_by_pid = {i['product_id']: i['qty'] for i in comps_clean}
+            for pid, move in existing_by_pid.items():
+                lot_id = lot_by_pid.get(pid)
+                qty_req = qty_by_pid.get(pid, 0.0)
+                if not lot_id and qty_req <= 0:
+                    continue
+                ml = move.move_line_ids[:1]
+                if ml:
+                    rec = ml[0]
+                    if lot_id:
+                        rec.lot_id = lot_id
+                    rec.quantity = qty_req  # Odoo 18
+                    self._logdbg("upd mline", rec.id, "move", move.id, "lot", lot_id, "qty", qty_req)
+                else:
+                    new_ml = self.env['stock.move.line'].create({
+                        'move_id': move.id,
+                        'company_id': move.company_id.id,
+                        'product_id': move.product_id.id,
+                        'product_uom_id': move.product_uom.id,
+                        'location_id': move.location_id.id,
+                        'location_dest_id': move.location_dest_id.id,
+                        'lot_id': lot_id or False,
+                        'quantity': qty_req,  # Odoo 18
+                    })
+                    self._logdbg("new mline", new_ml.id, "move", move.id, "lot", lot_id, "qty", qty_req)
+
+            self._toast(_("DBG MO creada: %(n)s | Líneas: %(c)d",
+                          n=mo.name, c=len(mo.move_raw_ids)), level='success')
 
             return {'mo_id': mo.id, 'name': mo.name}
 
         except Exception as e:
-            _logger.error("Error creating MO: %s", str(e))
-            raise UserError(_('Error creando orden de producción: %s') % str(e))
+            _logger.error("Error creating MO: %s", e)
+            self._toast(_("DBG Error creando OP: %s") % e, level='warning', sticky=True)
+            raise UserError(_('Error creando orden de producción: %s') % e)
