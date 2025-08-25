@@ -1,0 +1,9 @@
+<odoo>
+  <data>
+    <record id="action_simplified_mrp" model="ir.actions.client">
+      <field name="name">Producción simple</field>
+      <field name="tag">aq_simplified_mrp.client_action</field>
+      <field name="target">current</field>
+    </record>
+  </data>
+</odoo>

@@ -1,0 +1,82 @@
+/* static/src/scss/simplified_mrp.scss */
+
+/* Paletas sugeridas:
+   Opción A (viva):   --brand-blue: #2737BE; --brand-green: #3EF24E;  (Mexican Theme)
+   Opción B (corpor): --brand-blue: #2737BE; --brand-green: #006341;  (Verde bandera MX)
+   Ajusta aquí y todo el UI sigue en cascada.
+*/
+:root {
+  --brand-blue:  #2737BE; /* azul oscuro */
+  --brand-blue-2:#3B51E0; /* hover/acentos */
+  --brand-blue-3:#EEF1FF; /* foco suave */
+  --brand-green: #3EF24E; /* verde brillante */
+  --brand-green-2:#BFFFD0; /* realce suave */
+  --ink: #0b1426;
+}
+
+/* Contenedor principal */
+.o_smrp { padding: 16px; color: var(--ink); }
+.o_smrp h2 { color: var(--brand-blue); margin: 4px 0 12px; }
+
+/* Inputs */
+.o_smrp_row { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; }
+.o_smrp_input {
+  padding: 8px 10px; border: 1px solid #d3d8e3; border-radius: 8px; min-width: 160px;
+}
+.o_smrp_input:focus {
+  outline: none; border-color: var(--brand-blue); box-shadow: 0 0 0 2px var(--brand-blue-3);
+}
+
+/* Botones primarios en azul, acción confirmatoria en verde */
+.o_smrp_btn {
+  padding: 8px 12px; border-radius: 10px; border: 1px solid var(--brand-blue);
+  background: var(--brand-blue); color: #fff; cursor: pointer; transition: transform .02s ease;
+}
+.o_smrp_btn:hover { filter: brightness(1.02); }
+.o_smrp_btn:active { transform: translateY(1px); }
+.o_smrp_btn--ghost { background: #fff; color: var(--brand-blue); border: 1px solid var(--brand-blue); }
+.o_smrp_btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* Botón de “Siguiente/Confirmar” en flujo crítico = verde */
+.o_smrp .o_smrp_btn.confirm, .o_smrp .o_smrp_btn.search[disabled=false] {
+  background: var(--brand-green); border-color: var(--brand-green); color: #062b10;
+}
+.o_smrp .o_smrp_btn.confirm:hover { filter: saturate(1.05); }
+
+/* Tarjetas */
+.o_smrp_cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.o_smrp_card {
+  border: 1px solid #d3d8e3; padding: 12px; border-radius: 10px; background: #fff; cursor: default;
+}
+.o_smrp_card.selectable { cursor: pointer; }
+.o_smrp_card.selectable:hover { border-color: var(--brand-blue-2); box-shadow: 0 0 0 2px var(--brand-blue-3); }
+.o_smrp_card.selectable.selected { border-color: var(--brand-green); box-shadow: 0 0 0 2px var(--brand-green-2); }
+.o_smrp_card_title { font-weight: 600; }
+.o_smrp_card_sub { font-size: 12px; opacity: .7; }
+
+/* Wizard + boxes */
+.o_smrp_selected { margin-top: 8px; }
+.o_smrp_wizard { display: grid; gap: 12px; }
+.o_smrp_box { border: 1px dashed #c4cbe0; border-radius: 10px; padding: 12px; background: #fff; }
+.o_smrp_name { font-weight: 600; margin-bottom: 4px; }
+.o_smrp_meta { font-size: 12px; opacity: .8; }
+
+/* Lotes */
+.o_smrp_lots { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
+.o_smrp_lot {
+  border: 1px solid #d3d8e3; border-radius: 10px; padding: 8px; cursor: pointer;
+  display: flex; justify-content: space-between; background: #fff;
+}
+.o_smrp_lot:hover { border-color: var(--brand-blue-2); }
+.o_smrp_lot.selected { border-color: var(--brand-green); box-shadow: inset 0 0 0 2px var(--brand-green-2); }
+
+/* Paso activo / progreso */
+.o_smrp_steps { display: flex; gap: 8px; list-style: none; padding: 0; margin: 0 0 12px; flex-wrap: wrap; }
+.o_smrp_steps li {
+  padding: 6px 10px; border-radius: 999px; border: 1px solid #cfd6ea; background: #fff; font-size: 12px;
+}
+.o_smrp_steps li.active { border-color: var(--brand-blue); background: var(--brand-blue-3); color: var(--brand-blue); }
+.o_smrp_steps li.done { border-color: var(--brand-green); background: var(--brand-green-2); color: #0c3a15; }
+
+.o_smrp_actions { display: flex; gap: 8px; }
+.o_smrp_empty { opacity: .7; font-style: italic; }
