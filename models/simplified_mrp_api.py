@@ -70,13 +70,18 @@ class AqSimplifiedMrpApi(models.TransientModel):
             raise UserError(_('Error obteniendo almacenes: %s') % e)
 
     @api.model
-    def get_finished_products(self, query='', limit=20):
+    def get_finished_products(self, query='', limit=20, **kwargs):
         try:
+            _logger.debug("get_finished_products called with: query=%s, limit=%s, kwargs=%s", query, limit, kwargs)
+            
             dom = [('type', 'in', ['product', 'consu'])]
             if query and query.strip():
                 q = query.strip()
                 dom += ['|', ('name', 'ilike', q), ('default_code', 'ilike', q)]
+            
+            # Llamar search() SIN pasar kwargs adicionales
             prods = self.env['product.product'].search(dom, limit=int(limit), order='name asc')
+            
             return [{
                 'id': p.id,
                 'name': p.display_name,
@@ -88,13 +93,18 @@ class AqSimplifiedMrpApi(models.TransientModel):
             raise UserError(_('Error buscando productos: %s') % e)
 
     @api.model
-    def search_components(self, query='', limit=20):
+    def search_components(self, query='', limit=20, **kwargs):
         try:
+            _logger.debug("search_components called with: query=%s, limit=%s, kwargs=%s", query, limit, kwargs)
+            
             dom = [('type', 'in', ['product', 'consu'])]
             if query and query.strip():
                 q = query.strip()
                 dom += ['|', ('name', 'ilike', q), ('default_code', 'ilike', q)]
+            
+            # Llamar search() SIN pasar kwargs adicionales
             prods = self.env['product.product'].search(dom, limit=int(limit), order='name asc')
+            
             return [{
                 'id': p.id,
                 'name': p.display_name,
@@ -366,10 +376,87 @@ class AqSimplifiedMrpApi(models.TransientModel):
                     })
                     self._logdbg("new mline", new_ml.id, "move", move.id, "lot", lot_id, "qty", qty_req)
 
-            self._toast(_("DBG MO creada: %(n)s | Líneas: %(c)d",
-                          n=mo.name, c=len(mo.move_raw_ids)), level='success')
+            # ============== AUTOMATIZACIÓN COMPLETA DE LA MO ==============
+            
+            # 1. Crear el move line para el producto terminado si no existe
+            if not mo.move_finished_ids.move_line_ids:
+                # Buscar un lote existente o crear uno nuevo para el producto terminado
+                finished_lot = None
+                if product.tracking in ['lot', 'serial']:
+                    # Buscar si hay un lote disponible o crear uno nuevo
+                    Lot = self.env['stock.lot']
+                    finished_lot = Lot.search([
+                        ('product_id', '=', product.id),
+                        ('company_id', '=', mo.company_id.id)
+                    ], limit=1)
+                    
+                    if not finished_lot:
+                        # Crear un nuevo lote
+                        finished_lot = Lot.create({
+                            'name': f"{mo.name}-{product.default_code or product.name}",
+                            'product_id': product.id,
+                            'company_id': mo.company_id.id,
+                        })
+                        self._logdbg("Lote creado para producto terminado", finished_lot.id, finished_lot.name)
 
-            return {'mo_id': mo.id, 'name': mo.name}
+                # Crear move line para el producto terminado
+                finished_move_line = self.env['stock.move.line'].create({
+                    'move_id': mo.move_finished_ids[0].id,
+                    'company_id': mo.company_id.id,
+                    'product_id': product.id,
+                    'product_uom_id': product.uom_id.id,
+                    'location_id': mo.location_src_id.id,
+                    'location_dest_id': mo.location_dest_id.id,
+                    'lot_id': finished_lot.id if finished_lot else False,
+                    'quantity': qty,  # Odoo 18
+                })
+                self._logdbg("Move line creado para producto terminado", finished_move_line.id, "lot", finished_lot.id if finished_lot else None)
+
+            # 2. Marcar como iniciado
+            try:
+                mo.action_toggle_is_locked()  # Desbloquear para permitir modificaciones
+                mo.is_locked = False
+                mo.action_toggle_is_locked()  # Iniciar producción
+                self._logdbg("MO iniciado", mo.state)
+            except Exception as start_error:
+                self._logdbg("Error iniciando MO", start_error)
+                _logger.warning("Could not start production automatically: %s", start_error)
+
+            # 3. Completar automáticamente
+            try:
+                # Validar todos los movimientos
+                for move in mo.move_raw_ids:
+                    if move.state not in ['done', 'cancel']:
+                        move._action_done()
+                        self._logdbg("Move raw validado", move.id, move.product_id.display_name)
+                
+                for move in mo.move_finished_ids:
+                    if move.state not in ['done', 'cancel']:
+                        move._action_done()
+                        self._logdbg("Move finished validado", move.id, move.product_id.display_name)
+
+                # Marcar MO como hecha
+                if mo.state != 'done':
+                    mo.action_done()
+                    self._logdbg("MO marcada como hecha", mo.state)
+
+            except Exception as complete_error:
+                self._logdbg("Error completando MO", complete_error)
+                _logger.warning("Could not complete production automatically: %s", complete_error)
+                # Si no se puede completar automáticamente, al menos intentar ponerla en progreso
+                try:
+                    if mo.state == 'confirmed':
+                        mo.action_toggle_is_locked()
+                        self._logdbg("MO al menos iniciada", mo.state)
+                except Exception:
+                    pass
+
+            # ============== FIN DE AUTOMATIZACIÓN ==============
+
+            self._toast(_("DBG MO creada y completada: %(n)s | Estado: %(s)s | Líneas: %(c)d",
+                          n=mo.name, s=mo.state, c=len(mo.move_raw_ids)), level='success')
+
+            return {'mo_id': mo.id, 'name': mo.name, 'state': mo.state}
 
         except Exception as e:
             _logger.error("Error creating MO: %s", e)

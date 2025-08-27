@@ -4,7 +4,7 @@
     'version': '18.0.1.0.0',
     'summary': 'UI paso a paso para crear Órdenes de Producción',
     'category': 'Manufacturing',
-    'author': 'alphaqueb.com',
+    'author': 'Alphaqueb Consulting SAS',
     'license': 'LGPL-3',
     'depends': ['mrp', 'stock', 'web'],
     'assets': {

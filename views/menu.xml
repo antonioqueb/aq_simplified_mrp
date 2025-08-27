@@ -1,7 +1,7 @@
 <odoo>
   <data>
     <menuitem id="menu_simplified_mrp_root"
-              name="Producción simple"
+              name="Carga Producción"
               parent="mrp.menu_mrp_root"
               sequence="5"
               action="action_simplified_mrp"
