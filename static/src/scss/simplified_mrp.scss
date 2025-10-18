@@ -1,676 +1,642 @@
 /* static/src/scss/simplified_mrp.scss */
 /* ========================================================================
    SMRP - Simplified MRP System
-   Versión corregida: Scroll unificado + Densidad compacta
+   Versión corregida: Scroll funcional + Densidad optimizada
    ======================================================================== */
 
-:root{
-  --brand-blue:#2737BE; 
-  --brand-blue-2:#3B51E0; 
-  --brand-blue-3:#EEF1FF;
-  --brand-green:#3EF24E; 
-  --brand-green-2:#BFFFD0;
-  --ink:#0b1426; 
-  --bg:#F6F8FF; 
-  --card:#fff;
-  --radius:18px; 
-  --shadow:0 8px 24px rgba(23,35,79,.06);
-  --tap:56px; 
-  --gap:16px; 
-  --maxw:1024px;
-  --fs-base:18px; 
-  --fs-lg:20px; 
-  --fs-xl:28px;
+/* Variables con !default para permitir override */
+:root {
+  --smrp-brand-blue: #2737BE;
+  --smrp-brand-blue-2: #3B51E0;
+  --smrp-brand-blue-3: #EEF1FF;
+  --smrp-brand-green: #3EF24E;
+  --smrp-brand-green-2: #BFFFD0;
+  --smrp-ink: #0b1426;
+  --smrp-bg: #F6F8FF;
+  --smrp-card: #fff;
+  --smrp-radius: 14px;
+  --smrp-shadow: 0 6px 20px rgba(23, 35, 79, .06);
+  --smrp-tap: 48px;
+  --smrp-gap: 12px;
+  --smrp-maxw: 1280px;
+  --smrp-fs-base: 15px;
+  --smrp-fs-lg: 17px;
+  --smrp-fs-xl: 22px;
+  --smrp-header-height: 56px;
+  --smrp-filters-height: 68px;
 }
 
 /* ========================================================================
-   CONTENEDOR PRINCIPAL - Scroll unificado
+   CONTENEDOR PRINCIPAL
    ======================================================================== */
-.o_smrp{ 
-  background:var(--bg); 
-  color:var(--ink); 
-  min-height:100vh; 
-  padding:16px; 
-  padding-bottom:calc(var(--tap) + 24px + env(safe-area-inset-bottom));
-  overflow-y:auto;
-  overflow-x:hidden;
-  -webkit-overflow-scrolling:touch;
-  overscroll-behavior:auto;
-  touch-action:pan-y;
+.o_smrp {
+  background: var(--smrp-bg);
+  color: var(--smrp-ink);
+  min-height: 100vh;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; // Contenedor padre NO hace scroll
+  padding: 0;
 }
 
-.o_smrp_container{ 
-  max-width:var(--maxw); 
-  margin:0 auto; 
-  display:grid; 
-  gap:var(--gap);
+/* Wrapper interno con scroll */
+.o_smrp_wrapper {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px;
+  padding-bottom: calc(var(--smrp-tap) + 24px);
+  
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: var(--smrp-brand-blue-2);
+    border-radius: 4px;
+    
+    &:hover {
+      background: var(--smrp-brand-blue);
+    }
+  }
+  
+  scrollbar-width: thin;
+  scrollbar-color: var(--smrp-brand-blue-2) transparent;
 }
 
-.o_smrp_section{ 
-  padding:12px;
-  min-height:0;
+.o_smrp_container {
+  max-width: var(--smrp-maxw);
+  margin: 0 auto;
+  display: grid;
+  gap: var(--smrp-gap);
+}
+
+.o_smrp_section {
+  padding: 8px;
 }
 
 /* ========================================================================
-   STEPS - Indicador de progreso sticky
+   STEPS - Indicador de progreso
    ======================================================================== */
-.o_smrp_steps{ 
-  display:flex; 
-  align-items:center; 
-  justify-content:center; 
-  gap:10px; 
-  list-style:none; 
-  padding:8px 0; 
-  margin:0 0 8px; 
-  flex-wrap:wrap; 
-  position:sticky;
-  top:0;
-  background:var(--bg);
-  z-index:10;
-}
+.o_smrp_steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  list-style: none;
+  padding: 12px 16px;
+  margin: 0 0 12px;
+  flex-wrap: wrap;
+  background: var(--smrp-bg);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  border-bottom: 1px solid rgba(207, 214, 234, 0.3);
 
-.o_smrp_steps li{ 
-  display:flex; 
-  align-items:center; 
-  gap:8px; 
-  padding:10px 14px; 
-  border:1px solid #cfd6ea; 
-  border-radius:999px; 
-  background:#fff; 
-  font-size:14px; 
-}
+  li {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border: 1px solid #cfd6ea;
+    border-radius: 999px;
+    background: #fff;
+    font-size: 13px;
+    font-weight: 500;
+    
+    &.active {
+      border-color: var(--smrp-brand-blue);
+      background: var(--smrp-brand-blue-3);
+      color: var(--smrp-brand-blue);
+    }
+    
+    &.done {
+      border-color: var(--smrp-brand-green);
+      background: var(--smrp-brand-green-2);
+      color: #0c3a15;
+    }
+  }
 
-.o_smrp_steps .num{ 
-  width:28px; 
-  height:28px; 
-  border-radius:999px; 
-  display:inline-grid; 
-  place-items:center; 
-  background:#e8ecff; 
-  color:#2737BE; 
-  font-weight:700; 
-}
-
-.o_smrp_steps li.active{ 
-  border-color:var(--brand-blue); 
-  background:var(--brand-blue-3); 
-  color:var(--brand-blue); 
-}
-
-.o_smrp_steps li.done{ 
-  border-color:var(--brand-green); 
-  background:var(--brand-green-2); 
-  color:#0c3a15; 
+  .num {
+    width: 24px;
+    height: 24px;
+    border-radius: 999px;
+    display: inline-grid;
+    place-items: center;
+    background: #e8ecff;
+    color: var(--smrp-brand-blue);
+    font-weight: 700;
+    font-size: 12px;
+  }
 }
 
 /* ========================================================================
    HEADINGS
    ======================================================================== */
-.o_smrp h2{ 
-  font-size:var(--fs-xl); 
-  color:var(--brand-blue); 
-  text-align:center; 
-  margin:4px 0 6px; 
+.o_smrp h2 {
+  font-size: var(--smrp-fs-xl);
+  color: var(--smrp-brand-blue);
+  text-align: center;
+  margin: 8px 0 12px;
+  font-weight: 600;
 }
 
 /* ========================================================================
    INPUTS Y FORMULARIOS
    ======================================================================== */
-.o_smrp_row{ 
-  display:flex; 
-  flex-wrap:wrap; 
-  gap:12px; 
-  align-items:center; 
-  justify-content:center; 
+.o_smrp_row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
 }
 
-.o_smrp_label{ 
-  font-size:var(--fs-base); 
-  min-width:120px; 
+.o_smrp_label {
+  font-size: var(--smrp-fs-base);
+  min-width: 100px;
+  font-weight: 500;
 }
 
-.o_smrp_input{ 
-  padding:14px 16px; 
-  border:1px solid #d3d8e3; 
-  border-radius:var(--radius); 
-  min-width:220px; 
-  font-size:var(--fs-base); 
-  background:#fff; 
-}
+.o_smrp_input {
+  padding: 11px 14px;
+  border: 1px solid #d3d8e3;
+  border-radius: var(--smrp-radius);
+  min-width: 200px;
+  font-size: var(--smrp-fs-base);
+  background: #fff;
+  transition: all 0.2s ease;
 
-.o_smrp_input--xl{ 
-  font-size:var(--fs-lg); 
-}
+  &--xl {
+    font-size: var(--smrp-fs-lg);
+    padding: 12px 16px;
+  }
 
-.o_smrp_input:focus{ 
-  outline:none; 
-  border-color:var(--brand-blue); 
-  box-shadow:0 0 0 3px var(--brand-blue-3); 
+  &:focus {
+    outline: none;
+    border-color: var(--smrp-brand-blue);
+    box-shadow: 0 0 0 3px var(--smrp-brand-blue-3);
+  }
 }
 
 /* ========================================================================
    BOTONES
    ======================================================================== */
-.o_smrp_btn{ 
-  height:var(--tap); 
-  padding:0 20px; 
-  border-radius:var(--radius); 
-  border:1px solid var(--brand-blue);
-  background:var(--brand-blue); 
-  color:#fff; 
-  font-size:var(--fs-lg); 
-  cursor:pointer; 
-  box-shadow:var(--shadow); 
-  flex-shrink:0;
-}
+.o_smrp_btn {
+  height: var(--smrp-tap);
+  padding: 0 18px;
+  border-radius: var(--smrp-radius);
+  border: 1px solid var(--smrp-brand-blue);
+  background: var(--smrp-brand-blue);
+  color: #fff;
+  font-size: var(--smrp-fs-base);
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--smrp-shadow);
+  flex-shrink: 0;
+  transition: all 0.2s ease;
 
-.o_smrp_btn:hover{ 
-  filter:brightness(1.04); 
-}
+  &:hover:not(:disabled) {
+    filter: brightness(1.05);
+    transform: translateY(-1px);
+  }
 
-.o_smrp_btn:disabled{ 
-  opacity:.5; 
-  cursor:not-allowed; 
-}
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
 
-.o_smrp_btn--ghost{ 
-  background:#fff; 
-  color:var(--brand-blue); 
-}
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 
-.o_smrp_btn--xl{ 
-  min-width:180px; 
-}
+  &--ghost {
+    background: #fff;
+    color: var(--smrp-brand-blue);
+  }
 
-.o_smrp_btn.confirm{ 
-  background:var(--brand-green); 
-  border-color:var(--brand-green); 
-  color:#062b10; 
-}
+  &--xl {
+    min-width: 160px;
+  }
 
-/* ========================================================================
-   ACTIONS BAR - Barra de acciones sticky inferior
-   ======================================================================== */
-.o_smrp_actions{ 
-  display:flex; 
-  gap:12px; 
-  justify-content:center; 
-  align-items:center; 
-  flex-wrap:wrap; 
-}
-
-.o_smrp_actions--end{ 
-  justify-content:flex-end; 
-}
-
-.o_smrp_actions--center{ 
-  justify-content:center; 
-}
-
-.o_smrp_actions--sticky{ 
-  position:sticky; 
-  bottom:0; 
-  padding:8px 0;
-  background:linear-gradient(180deg, rgba(246,248,255,0) 0%, rgba(246,248,255,.96) 40%);
-  backdrop-filter:blur(2px);
-  z-index:5;
+  &.confirm {
+    background: var(--smrp-brand-green);
+    border-color: var(--smrp-brand-green);
+    color: #062b10;
+  }
 }
 
 /* ========================================================================
-   CARDS - Grid de tarjetas (SIN scroll anidado)
+   ACTIONS BAR
    ======================================================================== */
-.o_smrp_cards{ 
-  display:grid; 
-  gap:14px; 
-  grid-template-columns:repeat(auto-fill, minmax(240px, 1fr));
-  /* IMPORTANTE: Eliminado max-height y overflow para evitar scroll jail */
-  padding:4px;
-}
+.o_smrp_actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 8px 0;
 
-.o_smrp_cards--center{ 
-  justify-items:center; 
-}
+  &--end {
+    justify-content: flex-end;
+  }
 
-.o_smrp_card{ 
-  width:100%; 
-  max-width:320px; 
-  border:1px solid #d3d8e3; 
-  border-radius:var(--radius); 
-  background:var(--card);
-  box-shadow:var(--shadow); 
-  padding:18px; 
-  text-align:center; 
-  position:relative;
-  flex-shrink:0;
-}
+  &--center {
+    justify-content: center;
+  }
 
-.o_smrp_card_icon{ 
-  font-size:32px; 
-  margin-bottom:8px; 
-  line-height:1; 
-}
-
-.o_smrp_card_title{ 
-  font-size:var(--fs-lg); 
-  font-weight:600; 
-  color:var(--ink); 
-  margin-bottom:4px; 
-}
-
-.o_smrp_card_sub{ 
-  font-size:15px; 
-  color:#6b7996; 
-}
-
-.o_smrp_card.selectable{ 
-  cursor:pointer; 
-  transition:all .2s ease; 
-}
-
-.o_smrp_card.selectable:hover{ 
-  border-color:var(--brand-blue-2); 
-  box-shadow:0 12px 32px rgba(39,55,190,.12); 
-  transform:translateY(-2px); 
-}
-
-.o_smrp_card.selected{ 
-  border-color:var(--brand-blue); 
-  border-width:2px;
-  background:var(--brand-blue-3); 
-}
-
-.o_smrp_check{ 
-  position:absolute; 
-  top:-8px; 
-  right:-8px; 
-  width:28px; 
-  height:28px; 
-  border-radius:999px; 
-  background:var(--brand-green); 
-  color:#062b10; 
-  display:none; 
-  place-items:center; 
-  font-weight:700; 
-  box-shadow:0 4px 12px rgba(62,242,78,.3); 
-}
-
-.o_smrp_card.selected .o_smrp_check{ 
-  display:grid; 
+  &--sticky {
+    position: sticky;
+    bottom: 0;
+    padding: 12px 16px;
+    margin: 0 -16px -16px;
+    background: linear-gradient(180deg, 
+      rgba(246, 248, 255, 0) 0%, 
+      rgba(246, 248, 255, 0.97) 20%, 
+      rgba(246, 248, 255, 1) 50%
+    );
+    backdrop-filter: blur(8px);
+    z-index: 50;
+    border-top: 1px solid rgba(207, 214, 234, 0.2);
+  }
 }
 
 /* ========================================================================
    FILTERS - Barra de filtros sticky
    ======================================================================== */
-.o_smrp_filters{ 
-  position:sticky;
-  top:56px;
-  background:var(--bg);
-  z-index:9;
-  padding:12px 0;
-  margin-bottom:12px;
+.o_smrp_filters {
+  position: sticky;
+  top: var(--smrp-header-height);
+  background: var(--smrp-bg);
+  z-index: 90;
+  padding: 12px 0;
+  margin-bottom: 16px;
+  border-bottom: 1px solid rgba(207, 214, 234, 0.3);
 }
 
 /* ========================================================================
-   SELECTED BANNER - Indicador de selección sticky inferior
+   CARDS - Grid de tarjetas sin scroll anidado
    ======================================================================== */
-.o_smrp_selected{ 
-  position:sticky;
-  bottom:0;
-  padding:12px 16px; 
-  margin-top:16px;
-  background:linear-gradient(180deg, rgba(246,248,255,0) 0%, rgba(246,248,255,.96) 40%);
-  backdrop-filter:blur(2px);
-  border-radius:var(--radius); 
-  text-align:center; 
-  color:var(--ink); 
-  font-size:var(--fs-base); 
-  z-index:5;
+.o_smrp_cards {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  padding: 4px;
+  margin-bottom: 16px;
+
+  &--center {
+    justify-items: center;
+  }
 }
 
-.o_smrp_selected .badge{ 
-  display:inline-block; 
-  padding:4px 10px; 
-  background:var(--brand-green-2); 
-  color:#062b10; 
-  border-radius:8px; 
-  font-size:13px; 
-  font-weight:600; 
-  margin-right:8px; 
+.o_smrp_card {
+  width: 100%;
+  max-width: 300px;
+  border: 1px solid #d3d8e3;
+  border-radius: var(--smrp-radius);
+  background: var(--smrp-card);
+  box-shadow: var(--smrp-shadow);
+  padding: 16px;
+  text-align: center;
+  position: relative;
+  transition: all 0.2s ease;
+
+  &_icon {
+    font-size: 28px;
+    margin-bottom: 8px;
+    line-height: 1;
+  }
+
+  &_title {
+    font-size: var(--smrp-fs-lg);
+    font-weight: 600;
+    color: var(--smrp-ink);
+    margin-bottom: 4px;
+    line-height: 1.3;
+  }
+
+  &_sub {
+    font-size: 14px;
+    color: #6b7996;
+  }
+
+  &.selectable {
+    cursor: pointer;
+
+    &:hover {
+      border-color: var(--smrp-brand-blue-2);
+      box-shadow: 0 8px 24px rgba(39, 55, 190, 0.15);
+      transform: translateY(-2px);
+    }
+
+    &:active {
+      transform: translateY(0);
+    }
+  }
+
+  &.selected {
+    border-color: var(--smrp-brand-blue);
+    border-width: 2px;
+    background: var(--smrp-brand-blue-3);
+    padding: 15px; // Compensar borde más grueso
+
+    .o_smrp_check {
+      display: grid;
+    }
+  }
+}
+
+.o_smrp_check {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--smrp-brand-green);
+  color: #062b10;
+  display: none;
+  place-items: center;
+  font-weight: 700;
+  font-size: 14px;
+  box-shadow: 0 4px 12px rgba(62, 242, 78, 0.4);
 }
 
 /* ========================================================================
-   WIZARD - Navegación entre pasos
+   SELECTED BANNER
    ======================================================================== */
-.o_smrp_wizard{ 
-  display:grid; 
-  gap:16px; 
-}
+.o_smrp_selected {
+  position: sticky;
+  bottom: 0;
+  padding: 14px 16px;
+  margin: 16px -16px -16px;
+  background: linear-gradient(180deg, 
+    rgba(246, 248, 255, 0) 0%, 
+    rgba(246, 248, 255, 0.97) 20%, 
+    rgba(246, 248, 255, 1) 50%
+  );
+  backdrop-filter: blur(8px);
+  border-radius: var(--smrp-radius) var(--smrp-radius) 0 0;
+  text-align: center;
+  color: var(--smrp-ink);
+  font-size: var(--smrp-fs-base);
+  z-index: 50;
+  border-top: 1px solid rgba(207, 214, 234, 0.3);
 
-.o_smrp_counter{ 
-  text-align:center; 
-  font-size:var(--fs-base); 
-  color:var(--brand-blue); 
-  font-weight:600; 
-  padding:8px; 
-  background:#fff; 
-  border-radius:var(--radius); 
+  .badge {
+    display: inline-block;
+    padding: 4px 10px;
+    background: var(--smrp-brand-green-2);
+    color: #062b10;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-right: 8px;
+  }
+
+  strong {
+    font-weight: 600;
+  }
 }
 
 /* ========================================================================
-   BOX - Contenedores de contenido
+   WIZARD
    ======================================================================== */
-.o_smrp_box{ 
-  padding:20px; 
-  background:#fff; 
-  border-radius:var(--radius); 
-  box-shadow:var(--shadow); 
-  display:grid; 
-  gap:12px; 
+.o_smrp_wizard {
+  display: grid;
+  gap: 16px;
 }
 
-.o_smrp_box--big{ 
-  padding:24px; 
-}
-
-.o_smrp_name{ 
-  font-size:var(--fs-lg); 
-  font-weight:600; 
-  color:var(--ink); 
-}
-
-.o_smrp_meta{ 
-  font-size:15px; 
-  color:#6b7996; 
+.o_smrp_counter {
+  text-align: center;
+  font-size: var(--smrp-fs-base);
+  color: var(--smrp-brand-blue);
+  font-weight: 600;
+  padding: 10px;
+  background: #fff;
+  border-radius: var(--smrp-radius);
+  box-shadow: var(--smrp-shadow);
 }
 
 /* ========================================================================
-   LOTS - Grid de lotes (SIN scroll anidado)
+   BOX
    ======================================================================== */
-.o_smrp_lots{ 
-  display:grid; 
-  grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); 
-  gap:12px; 
-  /* IMPORTANTE: Eliminado max-height y overflow */
-  padding:4px; 
+.o_smrp_box {
+  padding: 18px;
+  background: #fff;
+  border-radius: var(--smrp-radius);
+  box-shadow: var(--smrp-shadow);
+  display: grid;
+  gap: 12px;
+
+  &--big {
+    padding: 22px;
+  }
 }
 
-.o_smrp_lot{ 
-  padding:16px; 
-  border:1px solid #d3d8e3; 
-  border-radius:var(--radius); 
-  background:#fff; 
-  cursor:pointer; 
-  position:relative;
-  transition:all .2s ease;
+.o_smrp_name {
+  font-size: var(--smrp-fs-lg);
+  font-weight: 600;
+  color: var(--smrp-ink);
+  line-height: 1.3;
 }
 
-.o_smrp_lot:hover{ 
-  border-color:var(--brand-blue-2); 
-  box-shadow:0 4px 16px rgba(39,55,190,.08); 
-  transform:translateY(-1px);
+.o_smrp_meta {
+  font-size: 14px;
+  color: #6b7996;
+
+  strong {
+    font-weight: 600;
+    color: var(--smrp-ink);
+  }
 }
 
-.o_smrp_lot.selected{ 
-  border-color:var(--brand-blue); 
-  border-width:2px;
-  background:var(--brand-blue-3); 
+/* ========================================================================
+   LOTS - Grid de lotes sin scroll anidado
+   ======================================================================== */
+.o_smrp_lots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+  padding: 4px;
+  margin-bottom: 16px;
 }
 
-.o_smrp_lot .name{ 
-  font-size:var(--fs-lg); 
-  font-weight:600; 
-  color:var(--ink); 
-  margin-bottom:4px; 
-}
+.o_smrp_lot {
+  padding: 14px;
+  border: 1px solid #d3d8e3;
+  border-radius: var(--smrp-radius);
+  background: #fff;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
 
-.o_smrp_lot .qty{ 
-  font-size:15px; 
-  color:#6b7996; 
-}
+  .name {
+    font-size: var(--smrp-fs-lg);
+    font-weight: 600;
+    color: var(--smrp-ink);
+    margin-bottom: 4px;
+    line-height: 1.3;
+  }
 
-.o_smrp_lot .o_smrp_check{ 
-  top:-8px; 
-  right:-8px; 
-}
+  .qty {
+    font-size: 14px;
+    color: #6b7996;
 
-.o_smrp_lot.selected .o_smrp_check{ 
-  display:grid; 
+    strong {
+      font-weight: 600;
+      color: var(--smrp-ink);
+    }
+  }
+
+  &:hover {
+    border-color: var(--smrp-brand-blue-2);
+    box-shadow: 0 4px 16px rgba(39, 55, 190, 0.12);
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  &.selected {
+    border-color: var(--smrp-brand-blue);
+    border-width: 2px;
+    background: var(--smrp-brand-blue-3);
+    padding: 13px; // Compensar borde más grueso
+
+    .o_smrp_check {
+      display: grid;
+    }
+  }
+
+  .o_smrp_check {
+    top: -10px;
+    right: -10px;
+  }
 }
 
 /* ========================================================================
    EMPTY STATE
    ======================================================================== */
-.o_smrp_empty{ 
-  text-align:center; 
-  padding:24px; 
-  color:#6b7996; 
-  font-size:var(--fs-base); 
-}
+.o_smrp_empty {
+  text-align: center;
+  padding: 32px 16px;
+  color: #6b7996;
+  font-size: var(--smrp-fs-base);
 
-.o_smrp_empty--block{ 
-  display:block; 
-  padding:16px; 
-  background:#f9fafb; 
-  border-radius:var(--radius); 
+  &--block {
+    display: block;
+    padding: 20px;
+    background: #f9fafb;
+    border-radius: var(--smrp-radius);
+    border: 1px dashed #d3d8e3;
+  }
 }
 
 /* ========================================================================
    DONE SCREEN
    ======================================================================== */
-.o_smrp_done{ 
-  text-align:center; 
+.o_smrp_done {
+  text-align: center;
+  padding: 32px 0;
+
+  &_icon {
+    font-size: 72px;
+    margin-bottom: 16px;
+    animation: bounce 0.6s ease;
+  }
 }
 
-.o_smrp_done_icon{ 
-  font-size:64px; 
-  margin-bottom:16px; 
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
 }
 
 /* ========================================================================
-   SCROLLABLE AREA - Por si se necesita en casos específicos
+   SCROLLABLE OVERRIDE (si se necesita en casos muy específicos)
    ======================================================================== */
-.o_smrp_scrollable{
-  /* Eliminado por defecto, se puede activar caso por caso */
-  max-height:none !important;
-  overflow:visible !important;
-  padding-right:0;
+.o_smrp_scrollable {
+  overflow: visible !important;
+  max-height: none !important;
 }
 
 /* ========================================================================
-   RESPONSIVE - Adaptaciones para móvil
+   RESPONSIVE
    ======================================================================== */
-@media (max-width:767px){
-  .o_smrp{ 
-    padding:12px; 
+@media (max-width: 767px) {
+  .o_smrp_wrapper {
+    padding: 12px;
   }
-  
-  .o_smrp_cards{ 
-    grid-template-columns:1fr; 
+
+  .o_smrp_cards {
+    grid-template-columns: 1fr;
   }
-  
-  .o_smrp_lots{ 
-    grid-template-columns:1fr; 
+
+  .o_smrp_lots {
+    grid-template-columns: 1fr;
   }
-  
-  .o_smrp_card{ 
-    max-width:100%; 
+
+  .o_smrp_card {
+    max-width: 100%;
   }
-  
-  .o_smrp_input{ 
-    min-width:100%; 
+
+  .o_smrp_input {
+    min-width: 100%;
   }
-  
-  .o_smrp_filters .o_smrp_row{ 
-    flex-direction:column; 
+
+  .o_smrp_filters .o_smrp_row {
+    flex-direction: column;
+    gap: 8px;
   }
-}
 
-@media (min-width:768px) and (max-width:1023px){
-  .o_smrp_cards{ 
-    grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); 
+  .o_smrp_actions {
+    flex-direction: column;
+
+    .o_smrp_btn {
+      width: 100%;
+    }
   }
-  
-  .o_smrp_lots{ 
-    grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); 
-  }
-}
 
-/* ========================================================================
-   OVERRIDE FINAL - Densidad Compacta + Scroll Unificado
-   Aplica configuración optimizada sobre el diseño base
-   ======================================================================== */
+  .o_smrp_steps {
+    gap: 6px;
+    padding: 8px;
 
-/* 1) Variables de densidad compacta */
-.o_smrp{
-  --fs-base:15px;
-  --fs-lg:16px;
-  --fs-xl:20px;
-  --tap:44px;
-  --gap:12px;
-  --radius:12px;
-  --maxw:1280px;
+    li {
+      font-size: 12px;
+      padding: 6px 10px;
+    }
 
-  padding:12px;
-  padding-bottom:calc(var(--tap) + 24px + env(safe-area-inset-bottom));
-  /* El scroll ya está configurado arriba, pero lo reforzamos */
-  overflow-y:auto;
-  overflow-x:hidden;
-  -webkit-overflow-scrolling:touch;
-  overscroll-behavior:auto;
-  touch-action:pan-y;
-}
-
-/* 2) Asegurar que NO hay scroll anidado en listas */
-.o_smrp_cards,
-.o_smrp_lots,
-.o_smrp_scrollable{
-  max-height:none !important;
-  overflow:visible !important;
-  padding-right:0;
-}
-
-/* 3) Sticky optimizado con offsets consistentes */
-.o_smrp_steps{ 
-  position:sticky; 
-  top:0; 
-  z-index:10; 
-}
-
-.o_smrp_filters{ 
-  position:sticky; 
-  top:56px; 
-  z-index:9; 
-}
-
-.o_smrp_actions--sticky,
-.o_smrp_selected{
-  position:sticky;
-  bottom:0;
-  padding:6px 0;
-  background:linear-gradient(180deg, rgba(246,248,255,0) 0%, rgba(246,248,255,.96) 40%);
-  backdrop-filter:blur(2px);
-  z-index:5;
-}
-
-/* 4) Tarjetas y lotes más compactos */
-.o_smrp_cards{ 
-  grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); 
-  gap:10px; 
-}
-
-.o_smrp_card{ 
-  max-width:280px; 
-  padding:12px; 
-}
-
-.o_smrp_card_icon{ 
-  font-size:22px; 
-  margin-bottom:4px; 
-}
-
-.o_smrp_card_title{ 
-  font-size:16px; 
-}
-
-.o_smrp_card_sub{ 
-  font-size:12px; 
-}
-
-.o_smrp_lots{ 
-  grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); 
-  gap:10px; 
-}
-
-.o_smrp_lot{ 
-  padding:12px; 
-}
-
-.o_smrp_lot .name{ 
-  font-size:16px; 
-}
-
-.o_smrp_lot .qty{ 
-  font-size:14px; 
-}
-
-/* 5) Inputs y botones compactos */
-.o_smrp_input{ 
-  min-width:180px; 
-  padding:10px 12px; 
-}
-
-.o_smrp_btn{ 
-  height:var(--tap); 
-  font-size:var(--fs-base); 
-  padding:0 14px; 
-}
-
-.o_smrp_btn--xl{ 
-  min-width:150px; 
-}
-
-/* 6) Offset consistente para filtros en todos los breakpoints */
-@media (min-width:768px){ 
-  .o_smrp_filters{ 
-    top:56px; 
-  } 
-}
-
-@media (min-width:1024px){ 
-  .o_smrp_filters{ 
-    top:56px; 
-  } 
-}
-
-/* 7) Móvil: 1 columna sin scroll anidado */
-@media (max-width:767px){
-  .o_smrp_cards, 
-  .o_smrp_lots{ 
-    grid-template-columns:1fr; 
+    .num {
+      width: 22px;
+      height: 22px;
+      font-size: 11px;
+    }
   }
 }
 
-/* ========================================================================
-   SCROLLBAR PERSONALIZADO (opcional, para mejor UX visual)
-   ======================================================================== */
-.o_smrp::-webkit-scrollbar{
-  width:8px;
+@media (min-width: 768px) and (max-width: 1023px) {
+  .o_smrp_cards {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+
+  .o_smrp_lots {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
 }
 
-.o_smrp::-webkit-scrollbar-track{
-  background:transparent;
-}
+@media (min-width: 1024px) {
+  .o_smrp_cards {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
 
-.o_smrp::-webkit-scrollbar-thumb{
-  background:var(--brand-blue-2);
-  border-radius:4px;
-}
-
-.o_smrp::-webkit-scrollbar-thumb:hover{
-  background:var(--brand-blue);
-}
-
-.o_smrp{
-  scrollbar-width:thin;
-  scrollbar-color:var(--brand-blue-2) transparent;
+  .o_smrp_lots {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
 }

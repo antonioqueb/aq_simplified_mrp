@@ -2,216 +2,224 @@
 <templates id="template" xml:space="preserve">
   <t t-name="aq_simplified_mrp.Main">
     <div class="o_smrp o_smrp--tablet">
+      
+      <!-- Wrapper con scroll -->
+      <div class="o_smrp_wrapper">
 
-      <!-- Header + Progreso -->
-      <div class="o_smrp_container">
-        <ol class="o_smrp_steps" role="list">
-          <li t-att-class="{'active': state.step === 'warehouse', 'done': ['product','components','lots','done'].includes(state.step)}" aria-current="step">
-            <span class="num">1</span><span>Almacén</span>
-          </li>
-          <li t-att-class="{'active': state.step === 'product', 'done': ['components','lots','done'].includes(state.step)}">
-            <span class="num">2</span><span>Producto</span>
-          </li>
-          <li t-att-class="{'active': state.step === 'components', 'done': ['lots','done'].includes(state.step)}">
-            <span class="num">3</span><span>Ingredientes</span>
-          </li>
-          <li t-att-class="{'active': state.step === 'lots', 'done': ['done'].includes(state.step)}">
-            <span class="num">4</span><span>Lotes</span>
-          </li>
-          <li t-att-class="{'active': state.step === 'done'}">
-            <span class="num">5</span><span>Listo</span>
-          </li>
-        </ol>
-      </div>
-
-      <!-- Paso: Almacén -->
-      <t t-if="state.step === 'warehouse'">
-        <div class="o_smrp_container o_smrp_section">
-          <h2>Selecciona almacén</h2>
-          <div class="o_smrp_cards o_smrp_cards--center">
-            <t t-foreach="state.warehouses" t-as="w" t-key="w.id">
-              <div class="o_smrp_card selectable"
-                   t-on-click="() => this.selectWarehouse(w.id)"
-                   role="button" tabindex="0" aria-pressed="false">
-                <div class="o_smrp_card_icon">🏬</div>
-                <div class="o_smrp_card_title"><t t-esc="w.name"/></div>
-                <div class="o_smrp_card_sub" t-if="w.code"><t t-esc="w.code"/></div>
-              </div>
-            </t>
-          </div>
-          <div class="o_smrp_empty" t-if="!state.warehouses.length">Sin almacenes disponibles.</div>
+        <!-- Header + Progreso (sticky al top) -->
+        <div class="o_smrp_steps_container">
+          <ol class="o_smrp_steps" role="list">
+            <li t-att-class="{'active': state.step === 'warehouse', 'done': ['product','components','lots','done'].includes(state.step)}" aria-current="step">
+              <span class="num">1</span><span>Almacén</span>
+            </li>
+            <li t-att-class="{'active': state.step === 'product', 'done': ['components','lots','done'].includes(state.step)}">
+              <span class="num">2</span><span>Producto</span>
+            </li>
+            <li t-att-class="{'active': state.step === 'components', 'done': ['lots','done'].includes(state.step)}">
+              <span class="num">3</span><span>Ingredientes</span>
+            </li>
+            <li t-att-class="{'active': state.step === 'lots', 'done': ['done'].includes(state.step)}">
+              <span class="num">4</span><span>Lotes</span>
+            </li>
+            <li t-att-class="{'active': state.step === 'done'}">
+              <span class="num">5</span><span>Listo</span>
+            </li>
+          </ol>
         </div>
-      </t>
 
-      <!-- Paso: Producto -->
-      <t t-if="state.step === 'product'">
-        <div class="o_smrp_container o_smrp_section">
-          <h2>Producto terminado</h2>
+        <!-- Contenedor principal con todos los pasos -->
+        <div class="o_smrp_container">
 
-          <div class="o_smrp_filters">
-            <div class="o_smrp_row">
-              <input class="o_smrp_input o_smrp_input--xl" type="text" placeholder="Buscar producto…"
-                     t-model="state.productQuery" t-on-input="() => this.searchProducts()" autocomplete="off"/>
-              <input class="o_smrp_input o_smrp_input--xl" type="number" inputmode="decimal" min="0" step="0.01"
-                     t-model="state.qty" placeholder="Cantidad"/>
-              <button class="o_smrp_btn confirm o_smrp_btn--xl"
-                      t-att-disabled="!(state.productId &amp;&amp; this.toNum(state.qty) > 0)"
-                      t-on-click="() => this.confirmProductAndQty()">Siguiente</button>
+          <!-- Paso: Almacén -->
+          <t t-if="state.step === 'warehouse'">
+            <div class="o_smrp_section">
+              <h2>Selecciona almacén</h2>
+              <div class="o_smrp_cards o_smrp_cards--center">
+                <t t-foreach="state.warehouses" t-as="w" t-key="w.id">
+                  <div class="o_smrp_card selectable"
+                       t-on-click="() => this.selectWarehouse(w.id)"
+                       role="button" tabindex="0" aria-pressed="false">
+                    <div class="o_smrp_card_icon">🏬</div>
+                    <div class="o_smrp_card_title"><t t-esc="w.name"/></div>
+                    <div class="o_smrp_card_sub" t-if="w.code"><t t-esc="w.code"/></div>
+                  </div>
+                </t>
+              </div>
+              <div class="o_smrp_empty" t-if="!state.warehouses.length">Sin almacenes disponibles.</div>
             </div>
-          </div>
+          </t>
 
-          <div class="o_smrp_cards o_smrp_cards--center">
-            <t t-foreach="state.products" t-as="p" t-key="p.id">
-              <div class="o_smrp_card selectable"
-                   t-att-class="{'selected': state.productId === p.id}"
-                   t-on-click="() => this.selectProduct(p)"
-                   role="button" tabindex="0"
-                   t-att-aria-pressed="state.productId === p.id">
-                <div class="o_smrp_card_icon">📦</div>
-                <div class="o_smrp_card_title"><t t-esc="p.name"/></div>
-                <div class="o_smrp_card_sub"><t t-esc="p.uom_name || p.uomName"/></div>
-                <div class="o_smrp_check" aria-hidden="true">✔</div>
-              </div>
-            </t>
-          </div>
-          <div class="o_smrp_empty" t-if="!state.products.length">Sin resultados.</div>
+          <!-- Paso: Producto -->
+          <t t-if="state.step === 'product'">
+            <div class="o_smrp_section">
+              <h2>Producto terminado</h2>
 
-          <div class="o_smrp_selected" t-if="state.productName">
-            <span class="badge">Seleccionado</span>
-            <strong><t t-esc="state.productName"/></strong>
-            <t t-if="state.uomName"> — <t t-esc="state.uomName"/></t>
-            <t t-if="state.qty"> • Cant.: <strong><t t-esc="state.qty"/></strong></t>
-          </div>
-        </div>
-      </t>
-
-      <!-- Paso: Ingredientes -->
-      <t t-if="state.step === 'components'">
-        <div class="o_smrp_container o_smrp_section">
-          <h2>Ingredientes</h2>
-
-          <t t-if="state.components.length">
-            <div class="o_smrp_wizard">
-              <div class="o_smrp_counter">Ingrediente <t t-esc="state.compIndex + 1"/> de <t t-esc="state.components.length"/></div>
-              <t t-set="c" t-value="state.components[state.compIndex]"/>
-
-              <div class="o_smrp_box o_smrp_box--big">
-                <div class="o_smrp_name"><t t-esc="c.name"/></div>
-                <div class="o_smrp_meta">UM: <t t-esc="c.uom_name"/></div>
+              <div class="o_smrp_filters">
                 <div class="o_smrp_row">
-                  <label class="o_smrp_label">Cantidad</label>
-                  <input class="o_smrp_input o_smrp_input--xl" type="number" inputmode="decimal" min="0" step="0.0001"
-                         t-att-value="c.qty_required"
-                         t-on-input="(ev) => this.updateCurrentQty(ev)"/>
+                  <input class="o_smrp_input o_smrp_input--xl" type="text" placeholder="Buscar producto…"
+                         t-model="state.productQuery" t-on-input="() => this.searchProducts()" autocomplete="off"/>
+                  <input class="o_smrp_input o_smrp_input--xl" type="number" inputmode="decimal" min="0" step="0.01"
+                         t-model="state.qty" placeholder="Cantidad"/>
+                  <button class="o_smrp_btn confirm o_smrp_btn--xl"
+                          t-att-disabled="!(state.productId &amp;&amp; this.toNum(state.qty) > 0)"
+                          t-on-click="() => this.confirmProductAndQty()">Siguiente</button>
                 </div>
               </div>
 
-              <div class="o_smrp_actions o_smrp_actions--sticky">
-                <button class="o_smrp_btn o_smrp_btn--ghost o_smrp_btn--xl"
-                        t-on-click="() => this.removeCurrentComponent()">Quitar</button>
-                <button class="o_smrp_btn o_smrp_btn--ghost o_smrp_btn--xl"
-                        t-att-disabled="state.compIndex === 0"
-                        t-on-click="() => this.prevComponent()">Atrás</button>
-                <button class="o_smrp_btn confirm o_smrp_btn--xl"
-                        t-on-click="() => this.nextComponent()">Siguiente</button>
+              <div class="o_smrp_cards o_smrp_cards--center">
+                <t t-foreach="state.products" t-as="p" t-key="p.id">
+                  <div class="o_smrp_card selectable"
+                       t-att-class="{'selected': state.productId === p.id}"
+                       t-on-click="() => this.selectProduct(p)"
+                       role="button" tabindex="0"
+                       t-att-aria-pressed="state.productId === p.id">
+                    <div class="o_smrp_card_icon">📦</div>
+                    <div class="o_smrp_card_title"><t t-esc="p.name"/></div>
+                    <div class="o_smrp_card_sub"><t t-esc="p.uom_name || p.uomName"/></div>
+                    <div class="o_smrp_check" aria-hidden="true">✔</div>
+                  </div>
+                </t>
+              </div>
+              <div class="o_smrp_empty" t-if="!state.products.length">Sin resultados.</div>
+
+              <div class="o_smrp_selected" t-if="state.productName">
+                <span class="badge">Seleccionado</span>
+                <strong><t t-esc="state.productName"/></strong>
+                <t t-if="state.uomName"> — <t t-esc="state.uomName"/></t>
+                <t t-if="state.qty"> • Cant.: <strong><t t-esc="state.qty"/></strong></t>
               </div>
             </div>
           </t>
 
-          <t t-if="!state.components.length">
-            <div class="o_smrp_empty">No hay lista de materiales. Agrega ingredientes antes de continuar.</div>
+          <!-- Paso: Ingredientes -->
+          <t t-if="state.step === 'components'">
+            <div class="o_smrp_section">
+              <h2>Ingredientes</h2>
+
+              <t t-if="state.components.length">
+                <div class="o_smrp_wizard">
+                  <div class="o_smrp_counter">Ingrediente <t t-esc="state.compIndex + 1"/> de <t t-esc="state.components.length"/></div>
+                  <t t-set="c" t-value="state.components[state.compIndex]"/>
+
+                  <div class="o_smrp_box o_smrp_box--big">
+                    <div class="o_smrp_name"><t t-esc="c.name"/></div>
+                    <div class="o_smrp_meta">UM: <t t-esc="c.uom_name"/></div>
+                    <div class="o_smrp_row">
+                      <label class="o_smrp_label">Cantidad</label>
+                      <input class="o_smrp_input o_smrp_input--xl" type="number" inputmode="decimal" min="0" step="0.0001"
+                             t-att-value="c.qty_required"
+                             t-on-input="(ev) => this.updateCurrentQty(ev)"/>
+                    </div>
+                  </div>
+
+                  <div class="o_smrp_actions o_smrp_actions--sticky">
+                    <button class="o_smrp_btn o_smrp_btn--ghost o_smrp_btn--xl"
+                            t-on-click="() => this.removeCurrentComponent()">Quitar</button>
+                    <button class="o_smrp_btn o_smrp_btn--ghost o_smrp_btn--xl"
+                            t-att-disabled="state.compIndex === 0"
+                            t-on-click="() => this.prevComponent()">Atrás</button>
+                    <button class="o_smrp_btn confirm o_smrp_btn--xl"
+                            t-on-click="() => this.nextComponent()">Siguiente</button>
+                  </div>
+                </div>
+              </t>
+
+              <t t-if="!state.components.length">
+                <div class="o_smrp_empty">No hay lista de materiales. Agrega ingredientes antes de continuar.</div>
+              </t>
+
+              <div class="o_smrp_box">
+                <div class="o_smrp_name">Agregar ingrediente</div>
+                <div class="o_smrp_row">
+                  <input class="o_smrp_input o_smrp_input--xl" type="text" placeholder="Buscar…"
+                         t-model="state.compSearchQuery" t-on-input="() => this.searchComponents()" autocomplete="off"/>
+                  <input class="o_smrp_input o_smrp_input--xl" type="number" inputmode="decimal" min="0" step="0.0001"
+                         t-model="state.newCompQty" placeholder="Cantidad"/>
+                </div>
+                <div class="o_smrp_cards o_smrp_cards--center">
+                  <t t-foreach="state.compSearchResults" t-as="p" t-key="p.id">
+                    <div class="o_smrp_card selectable"
+                         t-on-click="() => this.addComponentFromSearch(p)"
+                         role="button" tabindex="0" aria-pressed="false">
+                      <div class="o_smrp_card_icon">➕</div>
+                      <div class="o_smrp_card_title"><t t-esc="p.name"/></div>
+                      <div class="o_smrp_card_sub"><t t-esc="p.uom_name"/></div>
+                    </div>
+                  </t>
+                </div>
+                <div class="o_smrp_empty" t-if="!state.compSearchResults.length &amp;&amp; state.compSearchQuery">Sin coincidencias.</div>
+
+                <div class="o_smrp_actions o_smrp_actions--end" t-if="state.components.length">
+                  <button class="o_smrp_btn confirm o_smrp_btn--xl"
+                          t-on-click="() => { state.step = 'lots'; this.loadLotsForCurrent(); }">Continuar a lotes</button>
+                </div>
+              </div>
+            </div>
           </t>
 
-          <div class="o_smrp_box">
-            <div class="o_smrp_name">Agregar ingrediente</div>
-            <div class="o_smrp_row">
-              <input class="o_smrp_input o_smrp_input--xl" type="text" placeholder="Buscar…"
-                     t-model="state.compSearchQuery" t-on-input="() => this.searchComponents()" autocomplete="off"/>
-              <input class="o_smrp_input o_smrp_input--xl" type="number" inputmode="decimal" min="0" step="0.0001"
-                     t-model="state.newCompQty" placeholder="Cantidad"/>
-            </div>
-            <div class="o_smrp_cards o_smrp_cards--center">
-              <t t-foreach="state.compSearchResults" t-as="p" t-key="p.id">
-                <div class="o_smrp_card selectable"
-                     t-on-click="() => this.addComponentFromSearch(p)"
-                     role="button" tabindex="0" aria-pressed="false">
-                  <div class="o_smrp_card_icon">➕</div>
-                  <div class="o_smrp_card_title"><t t-esc="p.name"/></div>
-                  <div class="o_smrp_card_sub"><t t-esc="p.uom_name"/></div>
+          <!-- Paso: Lotes -->
+          <t t-if="state.step === 'lots'">
+            <div class="o_smrp_section">
+              <h2>Lotes por ingrediente</h2>
+
+              <t t-if="state.components.length">
+                <div class="o_smrp_wizard">
+                  <div class="o_smrp_counter">Ingrediente <t t-esc="state.compIndex + 1"/> de <t t-esc="state.components.length"/></div>
+                  <t t-set="c" t-value="state.components[state.compIndex]"/>
+
+                  <div class="o_smrp_box o_smrp_box--big">
+                    <div class="o_smrp_name"><t t-esc="c.name"/></div>
+                    <div class="o_smrp_meta">Requerido: <strong><t t-esc="c.qty_required"/></strong> <t t-esc="c.uom_name"/></div>
+
+                    <div class="o_smrp_lots">
+                      <t t-foreach="state.lots" t-as="l" t-key="l.id">
+                        <div class="o_smrp_lot"
+                             t-att-class="{
+                               selected: state.chosenLots &amp;&amp; state.chosenLots[c.product_id] === l.id
+                             }"
+                             t-on-click="() => this.chooseLot(l.id)"
+                             role="button" tabindex="0"
+                             t-att-aria-pressed="state.chosenLots &amp;&amp; state.chosenLots[c.product_id] === l.id">
+                          <div class="name"><t t-esc="l.name"/></div>
+                          <div class="qty"><strong><t t-esc="l.qty_available"/></strong> disp.</div>
+                          <div class="o_smrp_check">✔</div>
+                        </div>
+                      </t>
+                      <t t-if="!state.lots.length">
+                        <div class="o_smrp_empty o_smrp_empty--block">Sin lotes con stock en el almacén.</div>
+                      </t>
+                    </div>
+                  </div>
+
+                  <div class="o_smrp_actions o_smrp_actions--sticky">
+                    <button class="o_smrp_btn o_smrp_btn--ghost o_smrp_btn--xl" t-on-click="() => this.prevLot()">Atrás</button>
+                    <button class="o_smrp_btn confirm o_smrp_btn--xl"
+                            t-att-disabled="!(state.chosenLots &amp;&amp; state.chosenLots[c.product_id])"
+                            t-on-click="() => this.nextLot()">Siguiente</button>
+                  </div>
                 </div>
               </t>
             </div>
-            <div class="o_smrp_empty" t-if="!state.compSearchResults.length &amp;&amp; state.compSearchQuery">Sin coincidencias.</div>
+          </t>
 
-            <div class="o_smrp_actions o_smrp_actions--end" t-if="state.components.length">
-              <button class="o_smrp_btn confirm o_smrp_btn--xl"
-                      t-on-click="() => { state.step = 'lots'; this.loadLotsForCurrent(); }">Continuar a lotes</button>
-            </div>
-          </div>
-        </div>
-      </t>
-
-      <!-- Paso: Lotes -->
-      <t t-if="state.step === 'lots'">
-        <div class="o_smrp_container o_smrp_section">
-          <h2>Lotes por ingrediente</h2>
-
-          <t t-if="state.components.length">
-            <div class="o_smrp_wizard">
-              <div class="o_smrp_counter">Ingrediente <t t-esc="state.compIndex + 1"/> de <t t-esc="state.components.length"/></div>
-              <t t-set="c" t-value="state.components[state.compIndex]"/>
-
-              <div class="o_smrp_box o_smrp_box--big">
-                <div class="o_smrp_name"><t t-esc="c.name"/></div>
-                <div class="o_smrp_meta">Requerido: <strong><t t-esc="c.qty_required"/></strong> <t t-esc="c.uom_name"/></div>
-
-                <div class="o_smrp_lots">
-                  <t t-foreach="state.lots" t-as="l" t-key="l.id">
-                    <div class="o_smrp_lot"
-                         t-att-class="{
-                           selected: state.chosenLots &amp;&amp; state.chosenLots[c.product_id] === l.id
-                         }"
-                         t-on-click="() => this.chooseLot(l.id)"
-                         role="button" tabindex="0"
-                         t-att-aria-pressed="state.chosenLots &amp;&amp; state.chosenLots[c.product_id] === l.id">
-                      <div class="name"><t t-esc="l.name"/></div>
-                      <div class="qty"><strong><t t-esc="l.qty_available"/></strong> disp.</div>
-                      <div class="o_smrp_check">✔</div>
-                    </div>
-                  </t>
-                  <t t-if="!state.lots.length">
-                    <div class="o_smrp_empty o_smrp_empty--block">Sin lotes con stock en el almacén.</div>
-                  </t>
-                </div>
+          <!-- Paso: Done -->
+          <t t-if="state.step === 'done'">
+            <div class="o_smrp_section o_smrp_done">
+              <div class="o_smrp_done_icon">🎉</div>
+              <h2>¡Orden creada!</h2>
+              <div class="o_smrp_box">
+                El proceso se completó correctamente. Puedes crear una nueva orden de producción.
               </div>
-
-              <div class="o_smrp_actions o_smrp_actions--sticky">
-                <button class="o_smrp_btn o_smrp_btn--ghost o_smrp_btn--xl" t-on-click="() => this.prevLot()">Atrás</button>
+              <div class="o_smrp_actions o_smrp_actions--center">
                 <button class="o_smrp_btn confirm o_smrp_btn--xl"
-                        t-att-disabled="!(state.chosenLots &amp;&amp; state.chosenLots[c.product_id])"
-                        t-on-click="() => this.nextLot()">Siguiente</button>
+                        t-att-autofocus="true"
+                        t-on-click="() => this.resetWizard()">Crear nueva orden</button>
               </div>
             </div>
           </t>
-        </div>
-      </t>
 
-      <!-- Paso: Done -->
-      <t t-if="state.step === 'done'">
-        <div class="o_smrp_container o_smrp_section o_smrp_done">
-          <div class="o_smrp_done_icon">🎉</div>
-          <h2>¡Orden creada!</h2>
-          <div class="o_smrp_box">
-            El proceso se completó correctamente. Puedes crear una nueva orden de producción.
-          </div>
-          <div class="o_smrp_actions o_smrp_actions--center">
-            <button class="o_smrp_btn confirm o_smrp_btn--xl"
-                    t-att-autofocus="true"
-                    t-on-click="() => this.resetWizard()">Crear nueva orden</button>
-          </div>
-        </div>
-      </t>
-
-    </div>
+        </div><!-- /.o_smrp_container -->
+      </div><!-- /.o_smrp_wrapper -->
+    </div><!-- /.o_smrp -->
   </t>
 </templates>
