@@ -1,7 +1,7 @@
 /* static/src/scss/simplified_mrp.scss */
 /* ========================================================================
    SMRP - Simplified MRP System
-   Versión: Odoo 18 Optimized
+   Versión: Odoo 18 - Vertical Scroll Optimized
    ======================================================================== */
 
 :root {
@@ -31,21 +31,21 @@
   background: var(--smrp-bg);
   color: var(--smrp-ink);
   height: 100%;
-  min-height: 100vh; /* Asegura altura completa */
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* El padre NO hace scroll, lo hace el wrapper */
+  overflow: hidden; /* Bloqueamos scroll en el padre */
   padding: 0;
 }
 
-/* Wrapper interno con scroll - CLAVE PARA EL FUNCIONAMIENTO */
+/* Wrapper interno - ESTE ES EL QUE HACE EL SCROLL VERTICAL */
 .o_smrp_wrapper {
   flex: 1;
   overflow-y: auto;
-  overflow-x: hidden;
+  overflow-x: hidden; /* Evitamos scroll horizontal general */
   -webkit-overflow-scrolling: touch;
   padding: 16px;
-  padding-bottom: 100px; /* Espacio extra al final */
+  padding-bottom: 100px;
   
   &::-webkit-scrollbar {
     width: 8px;
@@ -270,7 +270,7 @@
    ======================================================================== */
 .o_smrp_filters {
   position: sticky;
-  top: 0; /* Ajustado para que funcione dentro del wrapper */
+  top: 0; 
   background: var(--smrp-bg);
   z-index: 90;
   padding: 12px 0;
@@ -279,36 +279,12 @@
 }
 
 /* ========================================================================
-   HORIZONTAL SCROLL (NUEVO PARA ALMACENES)
-   ======================================================================== */
-.o_smrp_horizontal_scroll {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 12px;
-  overflow-x: auto;
-  padding: 4px 4px 20px 4px;
-  margin-bottom: 16px;
-  width: 100%;
-  -webkit-overflow-scrolling: touch;
-
-  /* Scrollbar visible pero sutil */
-  &::-webkit-scrollbar { height: 8px; }
-  &::-webkit-scrollbar-track { background: transparent; }
-  &::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-
-  .o_smrp_card {
-    flex: 0 0 auto; /* No encoger */
-    width: 260px; 
-    margin-bottom: 0;
-  }
-}
-
-/* ========================================================================
-   CARDS
+   CARDS (GRID - Aquí está la clave para que se acomoden solos)
    ======================================================================== */
 .o_smrp_cards {
   display: grid;
   gap: 12px;
+  /* Esto hace que se llenen horizontalmente y bajen a la siguiente fila si no caben */
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   padding: 4px;
   margin-bottom: 16px;
@@ -541,10 +517,9 @@
   justify-content: center;
   padding: 12px;
   background: var(--smrp-bg);
-  /* Nav fija arriba */
   z-index: 110;
   border-bottom: 1px solid #d3d8e3;
-  flex-shrink: 0; /* No encoger */
+  flex-shrink: 0;
 }
 
 .o_smrp_nav_btn {
@@ -566,13 +541,12 @@
 }
 
 /* ========================================================================
-   LISTA DE ÓRDENES (Scroll fluido)
+   LISTA DE ÓRDENES
    ======================================================================== */
 .o_smrp_list {
   display: grid;
   gap: 12px;
   padding: 4px;
-  /* Se eliminaron restricciones de altura para que scrollee la página entera */
 }
 
 .o_smrp_list_item {

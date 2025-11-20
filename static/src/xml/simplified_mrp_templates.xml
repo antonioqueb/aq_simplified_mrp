@@ -12,7 +12,7 @@
                 t-on-click="() => this.showList()">📋 Mis órdenes</button>
       </div>
 
-      <!-- WRAPPER PRINCIPAL PARA HABILITAR SCROLL VERTICAL -->
+      <!-- WRAPPER PRINCIPAL (Scroll Vertical) -->
       <div class="o_smrp_wrapper">
 
         <!-- ========== VISTA CREAR ========== -->
@@ -37,12 +37,12 @@
             </ol>
           </div>
 
-          <!-- PASO 1: ALMACÉN CON SCROLL HORIZONTAL -->
+          <!-- PASO 1: ALMACÉN (Grid Wrapping) -->
           <t t-if="state.step === 'warehouse'">
             <div class="o_smrp_container o_smrp_section">
               <h2>Selecciona almacén</h2>
-              <!-- Contenedor horizontal nuevo -->
-              <div class="o_smrp_horizontal_scroll">
+              <!-- Regresamos a cards para que haga wrap automático -->
+              <div class="o_smrp_cards o_smrp_cards--center">
                 <t t-foreach="state.warehouses" t-as="w" t-key="w.id">
                   <div class="o_smrp_card selectable" t-on-click="() => this.selectWarehouse(w.id)">
                     <div class="o_smrp_card_icon">🏬</div>
@@ -52,9 +52,6 @@
                 </t>
               </div>
               <div class="o_smrp_empty" t-if="!state.warehouses.length">Sin almacenes disponibles.</div>
-              <div class="o_smrp_meta" style="text-align:center; opacity:0.7; margin-top:-10px;" t-if="state.warehouses.length > 2">
-                <small>Desliza para ver más ↔️</small>
-              </div>
             </div>
           </t>
 
@@ -276,7 +273,7 @@
           </div>
         </t>
 
-      </div> <!-- FIN DE WRAPPER -->
+      </div> <!-- FIN WRAPPER -->
 
     </div>
   </t>
