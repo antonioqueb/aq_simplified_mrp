@@ -117,10 +117,16 @@
                   </div>
                   <div class="o_smrp_empty" t-if="!state.compSearchResults.length &amp;&amp; state.compSearchQuery">Sin coincidencias.</div>
                   
-                  <!-- Botón para continuar a lotes si ya hay ingredientes -->
+                  <!-- Botones cuando hay ingredientes agregados -->
                   <div class="o_smrp_actions o_smrp_actions--sticky" t-if="state.components.length">
+                    <button class="o_smrp_btn o_smrp_btn--ghost o_smrp_btn--xl" t-on-click="() => this.backToProduct()">
+                      ← Volver a producto
+                    </button>
+                    <button class="o_smrp_btn o_smrp_btn--ghost o_smrp_btn--xl" t-on-click="() => this.reviewComponents()">
+                      📝 Revisar ingredientes (<t t-esc="state.components.length"/>)
+                    </button>
                     <button class="o_smrp_btn confirm o_smrp_btn--xl" t-on-click="() => this.continueToLots()">
-                      ✓ Continuar a selección de lotes (<t t-esc="state.components.length"/> ingredientes)
+                      ✓ Continuar a lotes
                     </button>
                   </div>
                 </div>
@@ -141,11 +147,11 @@
                     </div>
                   </div>
                   <div class="o_smrp_actions o_smrp_actions--sticky">
-                    <button class="o_smrp_btn o_smrp_btn--ghost o_smrp_btn--xl" t-on-click="() => this.removeCurrentComponent()">Quitar</button>
-                    <button class="o_smrp_btn o_smrp_btn--ghost o_smrp_btn--xl" t-att-disabled="state.compIndex === 0" t-on-click="() => this.prevComponent()">Atrás</button>
+                    <button class="o_smrp_btn o_smrp_btn--ghost o_smrp_btn--xl" t-on-click="() => this.removeCurrentComponent()">🗑️ Quitar</button>
+                    <button class="o_smrp_btn o_smrp_btn--ghost o_smrp_btn--xl" t-att-disabled="state.compIndex === 0" t-on-click="() => this.prevComponent()">← Anterior</button>
                     <button class="o_smrp_btn confirm o_smrp_btn--xl" t-on-click="() => this.nextComponent()">
-                      <t t-if="state.compIndex &lt; state.components.length - 1">Siguiente ingrediente</t>
-                      <t t-else="">Listo, agregar más</t>
+                      <t t-if="state.compIndex &lt; state.components.length - 1">Siguiente →</t>
+                      <t t-else="">✓ Listo</t>
                     </button>
                   </div>
                 </div>
@@ -184,9 +190,15 @@
                     </div>
                   </div>
                   <div class="o_smrp_actions o_smrp_actions--sticky">
-                    <button class="o_smrp_btn o_smrp_btn--ghost o_smrp_btn--xl" t-on-click="() => this.prevLot()">Atrás</button>
+                    <button class="o_smrp_btn o_smrp_btn--ghost o_smrp_btn--xl" t-on-click="() => this.prevLot()">
+                      <t t-if="state.compIndex === 0">← Volver a ingredientes</t>
+                      <t t-else="">← Anterior</t>
+                    </button>
                     <button class="o_smrp_btn confirm o_smrp_btn--xl" t-att-disabled="!(state.chosenLots &amp;&amp; state.chosenLots[c.product_id])"
-                            t-on-click="() => this.nextLot()">Siguiente</button>
+                            t-on-click="() => this.nextLot()">
+                      <t t-if="state.compIndex &lt; state.components.length - 1">Siguiente →</t>
+                      <t t-else="">✓ Crear orden</t>
+                    </button>
                   </div>
                 </div>
               </t>
