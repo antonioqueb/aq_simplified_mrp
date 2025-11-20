@@ -14,27 +14,34 @@ class SimplifiedMrp extends Component {
         this.notification = useService('notification');
 
         this.state = useState({
-            view: 'create',
+            view: 'create', // 'create' o 'list' o 'detail'
             step: 'warehouse',
             warehouses: [],
             warehouseId: null,
+
             products: [],
             productQuery: '',
             productId: null,
             productName: '',
             uomName: '',
             qty: 1.0,
+
             bomId: null,
             components: [],
             compIndex: 0,
-            editingComponent: false,
+            editingComponent: false, // Control de modo edición
+
             compSearchQuery: '',
             compSearchResults: [],
             newCompQty: 1.0,
+
             lots: [],
             chosenLots: {},
+
             resultMoId: null,
             resultMoName: '',
+
+            // Lista
             myProductions: [],
             selectedMo: null,
             moDetail: null,
@@ -52,60 +59,16 @@ class SimplifiedMrp extends Component {
         return Number.isFinite(n) ? n : 0;
     }
 
-    getProgressWidth() {
-        const steps = ['warehouse', 'product', 'components', 'lots', 'done'];
-        const index = steps.indexOf(this.state.step);
-        const width = ((index + 1) / steps.length) * 100;
-        return `width: ${width}%`;
-    }
-
-    getCurrentStepTitle() {
-        const titles = {
-            warehouse: 'Paso 1: Seleccionar almacén',
-            product: 'Paso 2: Producto a fabricar',
-            components: 'Paso 3: Ingredientes',
-            lots: 'Paso 4: Seleccionar lotes',
-            done: '¡Completado!'
-        };
-        return titles[this.state.step] || '';
-    }
-
-    // ---------- quantity controls ----------
-    increaseQty() {
-        this.state.qty = this.toNum(this.state.qty) + 1;
-    }
-
-    decreaseQty() {
-        const newQty = this.toNum(this.state.qty) - 1;
-        this.state.qty = newQty > 0 ? newQty : 1;
-    }
-
-    increaseCompQty() {
-        const c = this.state.components[this.state.compIndex];
-        if (c) c.qty_required = this.toNum(c.qty_required) + 1;
-    }
-
-    decreaseCompQty() {
-        const c = this.state.components[this.state.compIndex];
-        if (c) {
-            const newQty = this.toNum(c.qty_required) - 1;
-            c.qty_required = newQty > 0 ? newQty : 0.01;
-        }
-    }
-
-    // ---------- component editing ----------
-    editComponent(index) {
-        this.state.compIndex = index;
-        this.state.editingComponent = true;
-        this.state.compSearchQuery = '';
-        this.state.compSearchResults = [];
-    }
-
-    // ---------- data loading ----------
+    // ---------- data ----------
     async loadWarehouses() {
         try {
+            console.log('Cargando almacenes...');
             this.state.warehouses = await this.orm.call('aq.simplified.mrp.api', 'get_warehouses', [], {});
+            console.log('Almacenes cargados:', this.state.warehouses);
         } catch (e) {
+            console.error('Error completo cargando almacenes:', e);
+            console.error('Error data:', e.data);
+            console.error('Error message:', e.message);
             this.notification.add(`Error cargando almacenes: ${e.data?.message || e.message || e}`, { type: 'danger' });
         }
     }
@@ -113,7 +76,9 @@ class SimplifiedMrp extends Component {
     async loadMyProductions() {
         try {
             this.state.myProductions = await this.orm.call('aq.simplified.mrp.api', 'get_my_productions', [50], {});
+            console.log('Mis órdenes cargadas:', this.state.myProductions);
         } catch (e) {
+            console.error('Error cargando mis órdenes:', e);
             this.notification.add(`Error cargando mis órdenes: ${e.data?.message || e.message || e}`, { type: 'danger' });
         }
     }
@@ -123,13 +88,16 @@ class SimplifiedMrp extends Component {
             this.state.moDetail = await this.orm.call('aq.simplified.mrp.api', 'get_production_detail', [moId], {});
             this.state.selectedMo = moId;
             this.state.view = 'detail';
+            console.log('Detalle cargado:', this.state.moDetail);
         } catch (e) {
+            console.error('Error cargando detalle:', e);
             this.notification.add(`Error cargando detalle: ${e.data?.message || e.message || e}`, { type: 'danger' });
         }
     }
 
     async searchProducts() {
         try {
+            console.log('Buscando productos con query:', this.state.productQuery);
             const query = this.state.productQuery || '';
             this.state.products = await this.orm.call(
                 'aq.simplified.mrp.api', 
@@ -137,7 +105,13 @@ class SimplifiedMrp extends Component {
                 [query, 20], 
                 {}
             );
+            console.log('Productos encontrados:', this.state.products);
         } catch (e) {
+            console.error('Error completo buscando productos:', e);
+            console.error('Error data:', e.data);
+            console.error('Error message:', e.message);
+            console.error('Error type:', e.type);
+            
             let errorMessage = 'Error desconocido';
             if (e.data && e.data.message) {
                 errorMessage = e.data.message;
@@ -146,6 +120,7 @@ class SimplifiedMrp extends Component {
             } else if (typeof e === 'string') {
                 errorMessage = e;
             }
+            
             this.notification.add(`Error buscando productos: ${errorMessage}`, { type: 'danger' });
         }
     }
@@ -157,13 +132,20 @@ class SimplifiedMrp extends Component {
                 return;
             }
             
+            console.log('Buscando componentes con query:', this.state.compSearchQuery);
+            
             this.state.compSearchResults = await this.orm.call(
                 'aq.simplified.mrp.api', 
                 'search_components', 
                 [this.state.compSearchQuery, 20], 
                 {}
             );
+            console.log('Componentes encontrados:', this.state.compSearchResults);
         } catch (e) {
+            console.error('Error completo buscando ingredientes:', e);
+            console.error('Error data:', e.data);
+            console.error('Error message:', e.message);
+            
             let errorMessage = 'Error desconocido';
             if (e.data && e.data.message) {
                 errorMessage = e.data.message;
@@ -172,11 +154,12 @@ class SimplifiedMrp extends Component {
             } else if (typeof e === 'string') {
                 errorMessage = e;
             }
+            
             this.notification.add(`Error buscando ingredientes: ${errorMessage}`, { type: 'danger' });
         }
     }
 
-    // ---------- wizard flow ----------
+    // ---------- flow crear ----------
     selectWarehouse(id) {
         this.state.warehouseId = id;
         this.state.step = 'product';
@@ -186,6 +169,7 @@ class SimplifiedMrp extends Component {
         this.state.productId = p.id;
         this.state.productName = p.name;
         this.state.uomName = p.uom_name || p.uomName || '';
+        this.state.products = [];
     }
 
     async confirmProductAndQty() {
@@ -201,12 +185,16 @@ class SimplifiedMrp extends Component {
         this.state.qty = qty;
 
         try {
+            console.log('Obteniendo componentes BOM para producto:', this.state.productId, 'cantidad:', qty);
+            
             const res = await this.orm.call(
                 'aq.simplified.mrp.api', 
                 'get_bom_components', 
                 [this.state.productId, qty], 
                 {}
             );
+            
+            console.log('Resultado BOM:', res);
             
             this.state.bomId = res.bom_id || null;
             this.state.components = (res.components || []).map(c => ({ 
@@ -217,6 +205,10 @@ class SimplifiedMrp extends Component {
             this.state.editingComponent = false;
             this.state.step = 'components';
         } catch (e) {
+            console.error('Error completo obteniendo componentes:', e);
+            console.error('Error data:', e.data);
+            console.error('Error message:', e.message);
+            
             let errorMessage = 'Error desconocido';
             if (e.data && e.data.message) {
                 errorMessage = e.data.message;
@@ -225,6 +217,7 @@ class SimplifiedMrp extends Component {
             } else if (typeof e === 'string') {
                 errorMessage = e;
             }
+            
             this.notification.add(`Error obteniendo componentes: ${errorMessage}`, { type: 'danger' });
         }
     }
@@ -244,6 +237,9 @@ class SimplifiedMrp extends Component {
             this.state.editingComponent = false;
         } else if (this.state.compIndex > 0) {
             this.state.compIndex -= 1;
+            this.state.editingComponent = true;
+        } else {
+            this.state.editingComponent = true;
         }
     }
 
@@ -262,41 +258,36 @@ class SimplifiedMrp extends Component {
         this.state.compSearchResults = [];
         this.state.newCompQty = 1.0;
         this.state.compIndex = this.state.components.length - 1;
-        this.state.editingComponent = true;
+        this.state.editingComponent = true; // Activar modo edición
     }
 
     nextComponent() {
         if (!this.state.components.length) {
-            this.notification.add('Agrega al menos un ingrediente', { type: 'warning' });
+            this.notification.add('Debes agregar al menos un ingrediente', { type: 'warning' });
             return;
         }
         
         if (this.state.compIndex < this.state.components.length - 1) {
+            // Hay más componentes por revisar
             this.state.compIndex += 1;
+            this.state.editingComponent = true;
         } else {
+            // Terminó de revisar todos - volver a modo búsqueda o continuar a lotes
             this.state.editingComponent = false;
+            this.state.compIndex = this.state.components.length;
         }
     }
 
     prevComponent() {
         if (this.state.compIndex > 0) {
             this.state.compIndex -= 1;
+            this.state.editingComponent = true;
         }
-    }
-
-    backToProduct() {
-        this.state.step = 'product';
-        this.state.editingComponent = false;
-    }
-
-    reviewComponents() {
-        this.state.compIndex = 0;
-        this.state.editingComponent = true;
     }
     
     continueToLots() {
         if (!this.state.components.length) {
-            this.notification.add('Agrega al menos un ingrediente', { type: 'warning' });
+            this.notification.add('Debes agregar al menos un ingrediente', { type: 'warning' });
             return;
         }
         this.state.compIndex = 0;
@@ -309,13 +300,21 @@ class SimplifiedMrp extends Component {
         if (!comp) return;
         
         try {
+            console.log('Cargando lotes para producto:', comp.product_id, 'en almacén:', this.state.warehouseId);
+            
             this.state.lots = await this.orm.call(
                 'aq.simplified.mrp.api', 
                 'get_lots', 
                 [comp.product_id, this.state.warehouseId, 40], 
                 {}
             );
+            
+            console.log('Lotes cargados:', this.state.lots);
         } catch (e) {
+            console.error('Error completo cargando lotes:', e);
+            console.error('Error data:', e.data);
+            console.error('Error message:', e.message);
+            
             let errorMessage = 'Error desconocido';
             if (e.data && e.data.message) {
                 errorMessage = e.data.message;
@@ -324,6 +323,7 @@ class SimplifiedMrp extends Component {
             } else if (typeof e === 'string') {
                 errorMessage = e;
             }
+            
             this.notification.add(`Error cargando lotes: ${errorMessage}`, { type: 'danger' });
         }
     }
@@ -368,14 +368,22 @@ class SimplifiedMrp extends Component {
                 components: comps,
             };
             
+            console.log('Creando MO con payload:', payload);
+            
             const res = await this.orm.call('aq.simplified.mrp.api', 'create_mo', [payload], {});
+            
+            console.log('MO creada:', res);
             
             this.state.resultMoId = res.mo_id || null;
             this.state.resultMoName = res.name || '';
             this.state.step = 'done';
-            this.notification.add('Orden creada exitosamente', { type: 'success' });
+            this.notification.add('Orden de producción creada exitosamente', { type: 'success' });
             await this.loadMyProductions();
         } catch (e) {
+            console.error('Error completo creando MO:', e);
+            console.error('Error data:', e.data);
+            console.error('Error message:', e.message);
+            
             let errorMessage = 'Error desconocido';
             if (e.data && e.data.message) {
                 errorMessage = e.data.message;
@@ -384,7 +392,8 @@ class SimplifiedMrp extends Component {
             } else if (typeof e === 'string') {
                 errorMessage = e;
             }
-            this.notification.add(`Error creando orden: ${errorMessage}`, { type: 'danger' });
+            
+            this.notification.add(`Error creando orden de producción: ${errorMessage}`, { type: 'danger' });
         }
     }
 
@@ -418,7 +427,7 @@ class SimplifiedMrp extends Component {
         this.state.newCompQty = 1.0;
     }
 
-    // ---------- navigation ----------
+    // ---------- nav ----------
     showCreate() {
         this.resetWizard();
     }
