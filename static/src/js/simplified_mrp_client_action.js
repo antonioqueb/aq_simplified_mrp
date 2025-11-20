@@ -4,6 +4,11 @@ import { Component, useState, onWillStart } from '@odoo/owl';
 import { useService } from '@web/core/utils/hooks';
 
 class SimplifiedMrp extends Component {
+    // CORRECCIÓN 1: Definición de props para evitar advertencia en consola
+    static props = { 
+        "*": true 
+    };
+
     setup() {
         this.orm = useService('orm');
         this.action = useService('action');
@@ -236,7 +241,8 @@ class SimplifiedMrp extends Component {
                 uom_id: p.uom_id,
                 uom_name: p.uom_name,
                 qty_required: this.toNum(this.state.newCompQty) || 1.0,
-                tracking: 'none',
+                // CORRECCIÓN 2: Usar el tracking que viene del backend
+                tracking: p.tracking || 'none',
             });
         }
         this.state.compSearchQuery = '';

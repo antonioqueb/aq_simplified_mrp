@@ -108,6 +108,7 @@ class AqSimplifiedMrpApi(models.TransientModel):
                 'name': p.display_name,
                 'uom_id': p.uom_id.id,
                 'uom_name': p.uom_id.name,
+                'tracking': p.tracking,  # IMPORTANTE: Enviar tracking al frontend
             } for p in prods]
         except Exception as e:
             _logger.error("Error searching components: %s", e)
@@ -146,6 +147,7 @@ class AqSimplifiedMrpApi(models.TransientModel):
         try:
             product = self.env['product.product'].browse(int(product_id))
             wh = self.env['stock.warehouse'].browse(int(warehouse_id))
+            
             if not product.exists() or not wh.exists():
                 self._logdbg("get_lots", "producto/almacén inexistente", product_id, warehouse_id)
                 return []
@@ -163,69 +165,53 @@ class AqSimplifiedMrpApi(models.TransientModel):
                 ('usage', '=', 'internal')
             ])
             
-            self._logdbg("Ubicaciones internas encontradas", [loc.complete_name for loc in internal_locs])
-            
+            # DOMINIO CORREGIDO: Buscamos todo el stock positivo, con o sin lote
             domain = [
                 ('product_id', '=', product.id),
                 ('location_id', 'in', internal_locs.ids),
-                ('lot_id', '!=', False),
                 ('quantity', '>', 0),
             ]
+            
+            # Debug para verificar si Odoo ve stock
+            total_stock = Quant.search_count(domain)
+            self._logdbg("Stock total encontrado (con o sin lote):", total_stock)
 
-            # Muestreo de quants
-            sample_quants = Quant.search(domain, limit=10, order='quantity desc')
-            for q in sample_quants:
-                self._logdbg(
-                    "quant encontrado", f"prod={q.product_id.display_name}",
-                    f"lot={q.lot_id.display_name or '-'}",
-                    f"qty={q.quantity}", f"res={q.reserved_quantity}",
-                    f"loc={q.location_id.complete_name}"
-                )
-
+            # Agrupamos por lote (Odoo agrupa los False/None juntos automáticamente)
             groups = Quant.read_group(
                 domain,
                 ['quantity:sum', 'reserved_quantity:sum'],
                 ['lot_id'],
                 limit=int(limit),
+                lazy=True
             )
             
             self._logdbg("read_group result count", len(groups))
 
             Lot = self.env['stock.lot'].sudo()
             out, total_qty = [], 0.0
+            
             for g in groups:
-                lot_id = g.get('lot_id') and g['lot_id'][0]
+                lot_data = g.get('lot_id') # Puede ser (id, name) o False
+                lot_id = lot_data[0] if lot_data else False
+                
                 qsum = self._grp_sum(g, 'quantity')
                 rsum = self._grp_sum(g, 'reserved_quantity')
                 qty = (qsum or 0.0) - (rsum or 0.0)
-                self._logdbg("lot group", g.get('lot_id') and g['lot_id'][1], "qsum=", qsum, "rsum=", rsum, "avail=", qty)
-                if lot_id and qty > 0:
-                    lot = Lot.browse(lot_id)
-                    if lot.exists():
-                        out.append({'id': lot.id, 'name': lot.display_name, 'qty_available': qty})
-                        total_qty += qty
+                
+                self._logdbg("lot group", lot_data, "qsum=", qsum, "rsum=", rsum, "avail=", qty)
+                
+                if qty > 0:
+                    if lot_id:
+                        # Es un lote real
+                        out.append({'id': lot_id, 'name': lot_data[1], 'qty_available': qty})
+                    else:
+                        # Es stock general (sin lote asignado)
+                        out.append({'id': False, 'name': _('Sin lote / General'), 'qty_available': qty})
+                    
+                    total_qty += qty
 
-            # Fallback para productos sin tracking
-            if not out and product.tracking == 'none':
-                g2 = Quant.read_group(
-                    [
-                        ('product_id', '=', product.id),
-                        ('location_id', 'in', internal_locs.ids),
-                        ('lot_id', '=', False),
-                        ('quantity', '>', 0),
-                    ],
-                    ['quantity:sum', 'reserved_quantity:sum'],
-                    [],
-                )
-                qsum2 = g2 and self._grp_sum(g2[0], 'quantity') or 0.0
-                rsum2 = g2 and self._grp_sum(g2[0], 'reserved_quantity') or 0.0
-                qty2 = (qsum2 or 0.0) - (rsum2 or 0.0)
-                self._logdbg("fallback no-tracking", "qsum=", qsum2, "rsum=", rsum2, "avail=", qty2)
-                if qty2 > 0:
-                    out = [{'id': False, 'name': _('Sin lote'), 'qty_available': qty2}]
-                    total_qty = qty2
-
-            out.sort(key=lambda x: x['name'])
+            # Ordenamos: Los que tienen nombre primero, 'Sin lote' al final si quieres, o alfabético
+            out.sort(key=lambda x: x['name'] or 'ZZZZ')
 
             self._toast(
                 _("Lotes » Prod: %(p)s | WH: %(w)s | Encontrados: %(r)d | Total: %(t).2f",
@@ -233,6 +219,7 @@ class AqSimplifiedMrpApi(models.TransientModel):
                 level='info', sticky=True
             )
             return out[:int(limit)]
+
         except Exception as e:
             _logger.error("Error getting lots: %s", e, exc_info=True)
             self._toast(_("Error obteniendo lotes: %s") % e, level='warning', sticky=True)
