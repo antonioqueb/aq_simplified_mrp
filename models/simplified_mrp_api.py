@@ -79,7 +79,6 @@ class AqSimplifiedMrpApi(models.TransientModel):
                 q = query.strip()
                 dom += ['|', ('name', 'ilike', q), ('default_code', 'ilike', q)]
             
-            # Llamar search() SIN pasar kwargs adicionales
             prods = self.env['product.product'].search(dom, limit=int(limit), order='name asc')
             
             return [{
@@ -102,7 +101,6 @@ class AqSimplifiedMrpApi(models.TransientModel):
                 q = query.strip()
                 dom += ['|', ('name', 'ilike', q), ('default_code', 'ilike', q)]
             
-            # Llamar search() SIN pasar kwargs adicionales
             prods = self.env['product.product'].search(dom, limit=int(limit), order='name asc')
             
             return [{
@@ -144,39 +142,44 @@ class AqSimplifiedMrpApi(models.TransientModel):
 
     @api.model
     def get_lots(self, product_id, warehouse_id, limit=40):
-        """Disponibilidad por lote bajo TODAS las ubicaciones internas del almacén:
-           sum(quantity) - sum(reserved_quantity). Con trazas de depuración robustas."""
+        """Disponibilidad por lote bajo TODAS las ubicaciones internas del almacén."""
         try:
             product = self.env['product.product'].browse(int(product_id))
             wh = self.env['stock.warehouse'].browse(int(warehouse_id))
             if not product.exists() or not wh.exists():
                 self._logdbg("get_lots", "producto/almacén inexistente", product_id, warehouse_id)
-                self._toast(_("DBG: producto/almacén inexistente"), level='warning', sticky=True)
                 return []
 
             view_loc = wh.view_location_id
             if not view_loc:
                 self._logdbg("get_lots", "warehouse sin view_location_id", wh.id, wh.name)
-                self._toast(_("DBG: almacén sin ubicación raíz"), level='warning', sticky=True)
                 return []
 
             Quant = self.env['stock.quant'].sudo()
+            
+            # Buscar todas las ubicaciones internas bajo el almacén
+            internal_locs = self.env['stock.location'].search([
+                ('location_id', 'child_of', view_loc.id),
+                ('usage', '=', 'internal')
+            ])
+            
+            self._logdbg("Ubicaciones internas encontradas", [loc.complete_name for loc in internal_locs])
+            
             domain = [
                 ('product_id', '=', product.id),
-                ('location_id', 'child_of', view_loc.id),
-                ('location_id.usage', '=', 'internal'),
+                ('location_id', 'in', internal_locs.ids),
                 ('lot_id', '!=', False),
                 ('quantity', '>', 0),
             ]
 
-            # Muestreo de quants previos al group-by
+            # Muestreo de quants
             sample_quants = Quant.search(domain, limit=10, order='quantity desc')
             for q in sample_quants:
                 self._logdbg(
-                    "quant", f"prod={q.product_id.display_name}",
+                    "quant encontrado", f"prod={q.product_id.display_name}",
                     f"lot={q.lot_id.display_name or '-'}",
                     f"qty={q.quantity}", f"res={q.reserved_quantity}",
-                    f"loc={q.location_id.complete_name}({q.location_id.usage})"
+                    f"loc={q.location_id.complete_name}"
                 )
 
             groups = Quant.read_group(
@@ -185,9 +188,8 @@ class AqSimplifiedMrpApi(models.TransientModel):
                 ['lot_id'],
                 limit=int(limit),
             )
+            
             self._logdbg("read_group result count", len(groups))
-            for g in groups:
-                self._logdbg("group keys", list(g.keys()))
 
             Lot = self.env['stock.lot'].sudo()
             out, total_qty = [], 0.0
@@ -203,13 +205,12 @@ class AqSimplifiedMrpApi(models.TransientModel):
                         out.append({'id': lot.id, 'name': lot.display_name, 'qty_available': qty})
                         total_qty += qty
 
-            # Fallback si el producto no lleva tracking y el stock quedó sin lote
+            # Fallback para productos sin tracking
             if not out and product.tracking == 'none':
                 g2 = Quant.read_group(
                     [
                         ('product_id', '=', product.id),
-                        ('location_id', 'child_of', view_loc.id),
-                        ('location_id.usage', '=', 'internal'),
+                        ('location_id', 'in', internal_locs.ids),
                         ('lot_id', '=', False),
                         ('quantity', '>', 0),
                     ],
@@ -224,39 +225,17 @@ class AqSimplifiedMrpApi(models.TransientModel):
                     out = [{'id': False, 'name': _('Sin lote'), 'qty_available': qty2}]
                     total_qty = qty2
 
-            # Diagnóstico: stock en otras ubicaciones internas
-            if not out:
-                others = Quant.read_group(
-                    [
-                        ('product_id', '=', product.id),
-                        ('location_id.usage', '=', 'internal'),
-                        ('quantity', '>', 0),
-                    ],
-                    ['location_id', 'quantity:sum'],
-                    ['location_id'],
-                    limit=5
-                )
-                pieces = []
-                for x in others:
-                    loc = x.get('location_id') and x['location_id'][0]
-                    if not loc:
-                        continue
-                    qty_here = self._grp_sum(x, 'quantity')
-                    pieces.append(f"{self.env['stock.location'].browse(loc).complete_name}: {qty_here}")
-                self._logdbg("stock en otras ubicaciones", ", ".join(pieces) or "sin datos")
-
             out.sort(key=lambda x: x['name'])
 
             self._toast(
-                _("DBG Lotes » Prod: %(p)s [%(trk)s] | WH: %(w)s | child_of=%(loc)s | grupos=%(g)d | devueltos=%(r)d | total=%(t).2f",
-                  p=product.display_name, trk=product.tracking, w=wh.code or wh.name,
-                  loc=view_loc.complete_name, g=len(groups), r=len(out), t=total_qty),
+                _("Lotes » Prod: %(p)s | WH: %(w)s | Encontrados: %(r)d | Total: %(t).2f",
+                  p=product.display_name, w=wh.code or wh.name, r=len(out), t=total_qty),
                 level='info', sticky=True
             )
             return out[:int(limit)]
         except Exception as e:
-            _logger.error("Error getting lots: %s", e)
-            self._toast(_("DBG Error obteniendo lotes: %s") % e, level='warning', sticky=True)
+            _logger.error("Error getting lots: %s", e, exc_info=True)
+            self._toast(_("Error obteniendo lotes: %s") % e, level='warning', sticky=True)
             raise UserError(_('Error obteniendo lotes: %s') % e)
 
     # ---------- Create MO ----------
@@ -316,6 +295,7 @@ class AqSimplifiedMrpApi(models.TransientModel):
             self._logdbg("MO creado", mo.id, mo.name)
 
             mo.action_confirm()
+            mo.user_id = self.env.uid  # Asignar al usuario actual
             self._logdbg("MO confirmado", "moves:", len(mo.move_raw_ids))
 
             existing_by_pid = {m.product_id.id: m for m in mo.move_raw_ids}
@@ -361,7 +341,7 @@ class AqSimplifiedMrpApi(models.TransientModel):
                     rec = ml[0]
                     if lot_id:
                         rec.lot_id = lot_id
-                    rec.quantity = qty_req  # Odoo 18
+                    rec.quantity = qty_req
                     self._logdbg("upd mline", rec.id, "move", move.id, "lot", lot_id, "qty", qty_req)
                 else:
                     new_ml = self.env['stock.move.line'].create({
@@ -372,7 +352,7 @@ class AqSimplifiedMrpApi(models.TransientModel):
                         'location_id': move.location_id.id,
                         'location_dest_id': move.location_dest_id.id,
                         'lot_id': lot_id or False,
-                        'quantity': qty_req,  # Odoo 18
+                        'quantity': qty_req,
                     })
                     self._logdbg("new mline", new_ml.id, "move", move.id, "lot", lot_id, "qty", qty_req)
 
@@ -380,10 +360,8 @@ class AqSimplifiedMrpApi(models.TransientModel):
             
             # 1. Crear el move line para el producto terminado si no existe
             if not mo.move_finished_ids.move_line_ids:
-                # Buscar un lote existente o crear uno nuevo para el producto terminado
                 finished_lot = None
                 if product.tracking in ['lot', 'serial']:
-                    # Buscar si hay un lote disponible o crear uno nuevo
                     Lot = self.env['stock.lot']
                     finished_lot = Lot.search([
                         ('product_id', '=', product.id),
@@ -391,7 +369,6 @@ class AqSimplifiedMrpApi(models.TransientModel):
                     ], limit=1)
                     
                     if not finished_lot:
-                        # Crear un nuevo lote
                         finished_lot = Lot.create({
                             'name': f"{mo.name}-{product.default_code or product.name}",
                             'product_id': product.id,
@@ -399,7 +376,6 @@ class AqSimplifiedMrpApi(models.TransientModel):
                         })
                         self._logdbg("Lote creado para producto terminado", finished_lot.id, finished_lot.name)
 
-                # Crear move line para el producto terminado
                 finished_move_line = self.env['stock.move.line'].create({
                     'move_id': mo.move_finished_ids[0].id,
                     'company_id': mo.company_id.id,
@@ -408,15 +384,15 @@ class AqSimplifiedMrpApi(models.TransientModel):
                     'location_id': mo.location_src_id.id,
                     'location_dest_id': mo.location_dest_id.id,
                     'lot_id': finished_lot.id if finished_lot else False,
-                    'quantity': qty,  # Odoo 18
+                    'quantity': qty,
                 })
                 self._logdbg("Move line creado para producto terminado", finished_move_line.id, "lot", finished_lot.id if finished_lot else None)
 
             # 2. Marcar como iniciado
             try:
-                mo.action_toggle_is_locked()  # Desbloquear para permitir modificaciones
+                mo.action_toggle_is_locked()
                 mo.is_locked = False
-                mo.action_toggle_is_locked()  # Iniciar producción
+                mo.action_toggle_is_locked()
                 self._logdbg("MO iniciado", mo.state)
             except Exception as start_error:
                 self._logdbg("Error iniciando MO", start_error)
@@ -424,7 +400,6 @@ class AqSimplifiedMrpApi(models.TransientModel):
 
             # 3. Completar automáticamente
             try:
-                # Validar todos los movimientos
                 for move in mo.move_raw_ids:
                     if move.state not in ['done', 'cancel']:
                         move._action_done()
@@ -435,7 +410,6 @@ class AqSimplifiedMrpApi(models.TransientModel):
                         move._action_done()
                         self._logdbg("Move finished validado", move.id, move.product_id.display_name)
 
-                # Marcar MO como hecha
                 if mo.state != 'done':
                     mo.action_done()
                     self._logdbg("MO marcada como hecha", mo.state)
@@ -443,7 +417,6 @@ class AqSimplifiedMrpApi(models.TransientModel):
             except Exception as complete_error:
                 self._logdbg("Error completando MO", complete_error)
                 _logger.warning("Could not complete production automatically: %s", complete_error)
-                # Si no se puede completar automáticamente, al menos intentar ponerla en progreso
                 try:
                     if mo.state == 'confirmed':
                         mo.action_toggle_is_locked()
@@ -451,14 +424,88 @@ class AqSimplifiedMrpApi(models.TransientModel):
                 except Exception:
                     pass
 
-            # ============== FIN DE AUTOMATIZACIÓN ==============
-
-            self._toast(_("DBG MO creada y completada: %(n)s | Estado: %(s)s | Líneas: %(c)d",
+            self._toast(_("MO creada y completada: %(n)s | Estado: %(s)s | Líneas: %(c)d",
                           n=mo.name, s=mo.state, c=len(mo.move_raw_ids)), level='success')
 
             return {'mo_id': mo.id, 'name': mo.name, 'state': mo.state}
 
         except Exception as e:
-            _logger.error("Error creating MO: %s", e)
-            self._toast(_("DBG Error creando OP: %s") % e, level='warning', sticky=True)
+            _logger.error("Error creating MO: %s", e, exc_info=True)
+            self._toast(_("Error creando OP: %s") % e, level='warning', sticky=True)
             raise UserError(_('Error creando orden de producción: %s') % e)
+
+    # ---------- List & Detail ----------
+    @api.model
+    def get_my_productions(self, limit=50):
+        """Lista de OPs del usuario actual."""
+        try:
+            Production = self.env['mrp.production']
+            domain = [('user_id', '=', self.env.uid)]
+            
+            mos = Production.search(domain, limit=int(limit), order='date_start desc, id desc')
+            
+            result = []
+            for mo in mos:
+                result.append({
+                    'id': mo.id,
+                    'name': mo.name,
+                    'state': mo.state,
+                    'product_id': mo.product_id.id,
+                    'product_name': mo.product_id.display_name,
+                    'product_qty': mo.product_qty,
+                    'uom_name': mo.product_uom_id.name,
+                    'date_start': mo.date_start.isoformat() if mo.date_start else False,
+                    'date_finished': mo.date_finished.isoformat() if mo.date_finished else False,
+                })
+            
+            return result
+        except Exception as e:
+            _logger.error("Error getting my productions: %s", e, exc_info=True)
+            raise UserError(_('Error obteniendo mis órdenes: %s') % e)
+
+    @api.model
+    def get_production_detail(self, mo_id):
+        """Detalle simplificado de una OP."""
+        try:
+            mo = self.env['mrp.production'].browse(int(mo_id))
+            if not mo.exists():
+                raise UserError(_('Orden no encontrada'))
+            
+            # Solo el creador puede verla
+            if mo.user_id.id != self.env.uid:
+                raise UserError(_('No tienes permiso para ver esta orden'))
+            
+            components = []
+            for move in mo.move_raw_ids:
+                lot_name = False
+                qty_done = 0.0
+                if move.move_line_ids:
+                    lot_name = move.move_line_ids[0].lot_id.display_name if move.move_line_ids[0].lot_id else False
+                    qty_done = sum(ml.quantity for ml in move.move_line_ids)
+                
+                components.append({
+                    'product_name': move.product_id.display_name,
+                    'qty_required': move.product_uom_qty,
+                    'qty_done': qty_done,
+                    'uom_name': move.product_uom.name,
+                    'lot_name': lot_name or 'Sin lote',
+                })
+            
+            finished_lot = False
+            if mo.move_finished_ids and mo.move_finished_ids[0].move_line_ids:
+                finished_lot = mo.move_finished_ids[0].move_line_ids[0].lot_id.display_name or False
+            
+            return {
+                'name': mo.name,
+                'state': mo.state,
+                'product_name': mo.product_id.display_name,
+                'product_qty': mo.product_qty,
+                'uom_name': mo.product_uom_id.name,
+                'date_start': mo.date_start.isoformat() if mo.date_start else False,
+                'date_finished': mo.date_finished.isoformat() if mo.date_finished else False,
+                'finished_lot': finished_lot or 'Sin lote',
+                'components': components,
+            }
+        except Exception as e:
+            _logger.error("Error getting production detail: %s", e, exc_info=True)
+            raise UserError(_('Error obteniendo detalle: %s') % e)

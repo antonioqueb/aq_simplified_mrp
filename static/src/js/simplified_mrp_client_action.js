@@ -15,6 +15,7 @@ class SimplifiedMrp extends Component {
         this.notification = useService('notification');
 
         this.state = useState({
+            view: 'create', // 'create' o 'list' o 'detail'
             step: 'warehouse',
             warehouses: [],
             warehouseId: null,
@@ -24,25 +25,32 @@ class SimplifiedMrp extends Component {
             productId: null,
             productName: '',
             uomName: '',
-            qty: 1.0, // puede ser string desde el input; se sanea con toNum()
+            qty: 1.0,
 
             bomId: null,
-            components: [],              // [{product_id,name,uom_name,qty_required,tracking}]
+            components: [],
             compIndex: 0,
 
-            // búsqueda/alta de ingredientes
             compSearchQuery: '',
             compSearchResults: [],
             newCompQty: 1.0,
 
             lots: [],
-            chosenLots: {},              // product_id -> lot_id
+            chosenLots: {},
 
             resultMoId: null,
             resultMoName: '',
+
+            // Lista
+            myProductions: [],
+            selectedMo: null,
+            moDetail: null,
         });
 
-        onWillStart(async () => { await this.loadWarehouses(); });
+        onWillStart(async () => { 
+            await this.loadWarehouses(); 
+            await this.loadMyProductions();
+        });
     }
 
     // ---------- utils ----------
@@ -65,13 +73,32 @@ class SimplifiedMrp extends Component {
         }
     }
 
+    async loadMyProductions() {
+        try {
+            this.state.myProductions = await this.orm.call('aq.simplified.mrp.api', 'get_my_productions', [50], {});
+            console.log('Mis órdenes cargadas:', this.state.myProductions);
+        } catch (e) {
+            console.error('Error cargando mis órdenes:', e);
+            this.notification.add(`Error cargando mis órdenes: ${e.data?.message || e.message || e}`, { type: 'danger' });
+        }
+    }
+
+    async loadMoDetail(moId) {
+        try {
+            this.state.moDetail = await this.orm.call('aq.simplified.mrp.api', 'get_production_detail', [moId], {});
+            this.state.selectedMo = moId;
+            this.state.view = 'detail';
+            console.log('Detalle cargado:', this.state.moDetail);
+        } catch (e) {
+            console.error('Error cargando detalle:', e);
+            this.notification.add(`Error cargando detalle: ${e.data?.message || e.message || e}`, { type: 'danger' });
+        }
+    }
+
     async searchProducts() {
         try {
             console.log('Buscando productos con query:', this.state.productQuery);
-            
-            // Asegurar que siempre enviamos string vacío si no hay query
             const query = this.state.productQuery || '';
-            
             this.state.products = await this.orm.call(
                 'aq.simplified.mrp.api', 
                 'get_finished_products', 
@@ -132,7 +159,7 @@ class SimplifiedMrp extends Component {
         }
     }
 
-    // ---------- flow ----------
+    // ---------- flow crear ----------
     selectWarehouse(id) {
         this.state.warehouseId = id;
         this.state.step = 'product';
@@ -155,7 +182,7 @@ class SimplifiedMrp extends Component {
             this.notification.add('Cantidad inválida', { type: 'warning' });
             return;
         }
-        this.state.qty = qty; // normaliza
+        this.state.qty = qty;
 
         try {
             console.log('Obteniendo componentes BOM para producto:', this.state.productId, 'cantidad:', qty);
@@ -323,6 +350,7 @@ class SimplifiedMrp extends Component {
             this.state.resultMoName = res.name || '';
             this.state.step = 'done';
             this.notification.add('Orden de producción creada exitosamente', { type: 'success' });
+            await this.loadMyProductions();
         } catch (e) {
             console.error('Error completo creando MO:', e);
             console.error('Error data:', e.data);
@@ -353,6 +381,7 @@ class SimplifiedMrp extends Component {
     }
 
     resetWizard() {
+        this.state.view = 'create';
         this.state.step = 'warehouse';
         this.state.warehouseId = null;
         this.state.productId = null;
@@ -368,6 +397,42 @@ class SimplifiedMrp extends Component {
         this.state.compSearchResults = [];
         this.state.newCompQty = 1.0;
     }
+
+    // ---------- nav ----------
+    showCreate() {
+        this.resetWizard();
+    }
+
+    showList() {
+        this.state.view = 'list';
+        this.loadMyProductions();
+    }
+
+    backToList() {
+        this.state.view = 'list';
+        this.state.selectedMo = null;
+        this.state.moDetail = null;
+    }
+
+    getStateLabel(state) {
+        const labels = {
+            draft: 'Borrador',
+            confirmed: 'Confirmada',
+            progress: 'En progreso',
+            to_close: 'Por cerrar',
+            done: 'Hecha',
+            cancel: 'Cancelada',
+        };
+        return labels[state] || state;
+    }
+
+    getStateClass(state) {
+        if (state === 'done') return 'success';
+        if (state === 'cancel') return 'danger';
+        if (state === 'progress') return 'warning';
+        return 'info';
+    }
 }
+
 SimplifiedMrp.template = 'aq_simplified_mrp.Main';
 registry.category('actions').add('aq_simplified_mrp.client_action', SimplifiedMrp);

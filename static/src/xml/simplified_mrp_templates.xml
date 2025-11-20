@@ -1,4 +1,3 @@
-<!-- static/src/xml/simplified_mrp.xml -->
 <templates id="template" xml:space="preserve">
   <t t-name="aq_simplified_mrp.Main">
     <div class="o_smrp o_smrp--tablet">
