@@ -116,19 +116,6 @@
                     </t>
                   </div>
                   <div class="o_smrp_empty" t-if="!state.compSearchResults.length &amp;&amp; state.compSearchQuery">Sin coincidencias.</div>
-                  
-                  <!-- Botones cuando hay ingredientes agregados -->
-                  <div class="o_smrp_actions o_smrp_actions--sticky" t-if="state.components.length">
-                    <button class="o_smrp_btn o_smrp_btn--ghost o_smrp_btn--xl" t-on-click="() => this.backToProduct()">
-                      ← Volver a producto
-                    </button>
-                    <button class="o_smrp_btn o_smrp_btn--ghost o_smrp_btn--xl" t-on-click="() => this.reviewComponents()">
-                      📝 Revisar ingredientes (<t t-esc="state.components.length"/>)
-                    </button>
-                    <button class="o_smrp_btn confirm o_smrp_btn--xl" t-on-click="() => this.continueToLots()">
-                      ✓ Continuar a lotes
-                    </button>
-                  </div>
                 </div>
               </t>
 
@@ -161,6 +148,19 @@
               <t t-if="!state.components.length &amp;&amp; !state.editingComponent">
                 <div class="o_smrp_empty">No hay ingredientes agregados. Busca y agrega al menos uno.</div>
               </t>
+
+              <!-- BARRA DE ACCIÓN STICKY - SIEMPRE VISIBLE cuando hay ingredientes -->
+              <div class="o_smrp_actions o_smrp_actions--sticky" t-if="state.components.length">
+                <button class="o_smrp_btn o_smrp_btn--ghost o_smrp_btn--xl" t-on-click="() => this.backToProduct()">
+                  ← Volver a producto
+                </button>
+                <button class="o_smrp_btn o_smrp_btn--ghost o_smrp_btn--xl" t-on-click="() => this.reviewComponents()">
+                  📝 Revisar ingredientes (<t t-esc="state.components.length"/>)
+                </button>
+                <button class="o_smrp_btn confirm o_smrp_btn--xl" t-on-click="() => this.continueToLots()">
+                  ✓ Continuar a lotes
+                </button>
+              </div>
             </div>
           </t>
 
