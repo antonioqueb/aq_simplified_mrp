@@ -1,643 +1,553 @@
 /* static/src/scss/simplified_mrp.scss */
-/* ========================================================================
-   SMRP - Simplified MRP System
-   Versión corregida: Scroll funcional + Densidad optimizada
-   ======================================================================== */
-
-/* Variables con !default para permitir override */
-:root {
-  --smrp-brand-blue: #2737BE;
-  --smrp-brand-blue-2: #3B51E0;
-  --smrp-brand-blue-3: #EEF1FF;
-  --smrp-brand-green: #3EF24E;
-  --smrp-brand-green-2: #BFFFD0;
-  --smrp-ink: #0b1426;
-  --smrp-bg: #F6F8FF;
-  --smrp-card: #fff;
-  --smrp-radius: 14px;
-  --smrp-shadow: 0 6px 20px rgba(23, 35, 79, .06);
-  --smrp-tap: 48px;
-  --smrp-gap: 12px;
-  --smrp-maxw: 1280px;
-  --smrp-fs-base: 15px;
-  --smrp-fs-lg: 17px;
-  --smrp-fs-xl: 22px;
-  --smrp-header-height: 56px;
-  --smrp-filters-height: 68px;
+:root{
+  --brand-blue:#2737BE; --brand-blue-2:#3B51E0; --brand-blue-3:#EEF1FF;
+  --brand-green:#3EF24E; --brand-green-2:#BFFFD0;
+  --ink:#0b1426; --bg:#F6F8FF; --card:#fff;
+  --radius:18px; --shadow:0 8px 24px rgba(23,35,79,.06);
+  --tap:56px; --gap:16px; --maxw:1024px;
+  --fs-base:18px; --fs-lg:20px; --fs-xl:28px;
 }
 
-/* ========================================================================
-   CONTENEDOR PRINCIPAL
-   ======================================================================== */
-.o_smrp {
-  background: var(--smrp-bg);
-  color: var(--smrp-ink);
-  min-height: 100vh;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden; // Contenedor padre NO hace scroll
-  padding: 0;
+.o_smrp{ 
+  background:var(--bg); 
+  color:var(--ink); 
+  min-height:100vh; 
+  padding:16px; 
+  overflow-y:auto;
+  overflow-x:hidden;
 }
 
-/* Wrapper interno con scroll */
-.o_smrp_wrapper {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
-  padding: 16px;
-  padding-bottom: calc(var(--smrp-tap) + 24px);
+.o_smrp_container{ 
+  max-width:var(--maxw); 
+  margin:0 auto; 
+  display:grid; 
+  gap:var(--gap);
+}
+
+.o_smrp_section{ 
+  padding:12px;
+  min-height:0; /* Permite que el contenedor se reduzca */
+}
+
+/* Steps */
+.o_smrp_steps{ 
+  display:flex; 
+  align-items:center; 
+  justify-content:center; 
+  gap:10px; 
+  list-style:none; 
+  padding:0; 
+  margin:0 0 8px; 
+  flex-wrap:wrap; 
+  position:sticky;
+  top:0;
+  background:var(--bg);
+  z-index:10;
+  padding:8px 0;
+}
+
+.o_smrp_steps li{ 
+  display:flex; 
+  align-items:center; 
+  gap:8px; 
+  padding:10px 14px; 
+  border:1px solid #cfd6ea; 
+  border-radius:999px; 
+  background:#fff; 
+  font-size:14px; 
+}
+
+.o_smrp_steps .num{ 
+  width:28px; 
+  height:28px; 
+  border-radius:999px; 
+  display:inline-grid; 
+  place-items:center; 
+  background:#e8ecff; 
+  color:#2737BE; 
+  font-weight:700; 
+}
+
+.o_smrp_steps li.active{ 
+  border-color:var(--brand-blue); 
+  background:var(--brand-blue-3); 
+  color:var(--brand-blue); 
+}
+
+.o_smrp_steps li.done{ 
+  border-color:var(--brand-green); 
+  background:var(--brand-green-2); 
+  color:#0c3a15; 
+}
+
+/* Headings */
+.o_smrp h2{ 
+  font-size:var(--fs-xl); 
+  color:var(--brand-blue); 
+  text-align:center; 
+  margin:4px 0 6px; 
+}
+
+/* Inputs */
+.o_smrp_row{ 
+  display:flex; 
+  flex-wrap:wrap; 
+  gap:12px; 
+  align-items:center; 
+  justify-content:center; 
+}
+
+.o_smrp_label{ 
+  font-size:var(--fs-base); 
+  min-width:120px; 
+}
+
+.o_smrp_input{ 
+  padding:14px 16px; 
+  border:1px solid #d3d8e3; 
+  border-radius:var(--radius); 
+  min-width:220px; 
+  font-size:var(--fs-base); 
+  background:#fff; 
+}
+
+.o_smrp_input--xl{ 
+  font-size:var(--fs-lg); 
+}
+
+.o_smrp_input:focus{ 
+  outline:none; 
+  border-color:var(--brand-blue); 
+  box-shadow:0 0 0 3px var(--brand-blue-3); 
+}
+
+/* Buttons */
+.o_smrp_btn{ 
+  height:var(--tap); 
+  padding:0 20px; 
+  border-radius:var(--radius); 
+  border:1px solid var(--brand-blue);
+  background:var(--brand-blue); 
+  color:#fff; 
+  font-size:var(--fs-lg); 
+  cursor:pointer; 
+  box-shadow:var(--shadow); 
+  flex-shrink:0;
+}
+
+.o_smrp_btn:hover{ 
+  filter:brightness(1.04); 
+}
+
+.o_smrp_btn:disabled{ 
+  opacity:.5; 
+  cursor:not-allowed; 
+}
+
+.o_smrp_btn--ghost{ 
+  background:#fff; 
+  color:var(--brand-blue); 
+}
+
+.o_smrp_btn--xl{ 
+  min-width:180px; 
+}
+
+.o_smrp_btn.confirm{ 
+  background:var(--brand-green); 
+  border-color:var(--brand-green); 
+  color:#062b10; 
+}
+
+/* Actions bar */
+.o_smrp_actions{ 
+  display:flex; 
+  gap:12px; 
+  justify-content:center; 
+  align-items:center; 
+  flex-wrap:wrap; 
+}
+
+.o_smrp_actions--end{ 
+  justify-content:flex-end; 
+}
+
+.o_smrp_actions--center{ 
+  justify-content:center; 
+}
+
+.o_smrp_actions--sticky{ 
+  position:sticky; 
+  bottom:12px; 
+  padding:8px; 
+  background:linear-gradient(180deg, rgba(246,248,255,0) 0%, rgba(246,248,255,.95) 40%);
+  z-index:5;
+}
+
+/* Cards */
+.o_smrp_cards{ 
+  display:grid; 
+  gap:14px; 
+  grid-template-columns:repeat(auto-fill, minmax(240px, 1fr));
+  max-height:60vh;
+  overflow-y:auto;
+  overflow-x:hidden;
+  padding:4px;
+  /* Estilos del scrollbar para webkit browsers */
+  scrollbar-width:thin;
+  scrollbar-color:var(--brand-blue-2) transparent;
+}
+
+.o_smrp_cards::-webkit-scrollbar{
+  width:8px;
+}
+
+.o_smrp_cards::-webkit-scrollbar-track{
+  background:transparent;
+}
+
+.o_smrp_cards::-webkit-scrollbar-thumb{
+  background:var(--brand-blue-2);
+  border-radius:4px;
+}
+
+.o_smrp_cards::-webkit-scrollbar-thumb:hover{
+  background:var(--brand-blue);
+}
+
+.o_smrp_cards--center{ 
+  justify-items:center; 
+}
+
+.o_smrp_card{ 
+  width:100%; 
+  max-width:320px; 
+  border:1px solid #d3d8e3; 
+  border-radius:var(--radius); 
+  background:var(--card);
+  box-shadow:var(--shadow); 
+  padding:18px; 
+  text-align:center; 
+  position:relative;
+  flex-shrink:0;
+}
+
+.o_smrp_card_icon{ 
+  font-size:28px; 
+  margin-bottom:6px; 
+}
+
+.o_smrp_card_title{ 
+  font-weight:700; 
+  font-size:20px;
+  word-break:break-word;
+}
+
+.o_smrp_card_sub{ 
+  font-size:13px; 
+  opacity:.75; 
+}
+
+.o_smrp_card.selectable{ 
+  cursor:pointer; 
+}
+
+.o_smrp_card.selectable:hover{ 
+  border-color:var(--brand-blue-2); 
+  box-shadow:0 0 0 3px var(--brand-blue-3); 
+}
+
+.o_smrp_card.selectable.selected{ 
+  border-color:var(--brand-green); 
+  box-shadow:0 0 0 3px var(--brand-green-2); 
+}
+
+.o_smrp_check{ 
+  position:absolute; 
+  right:12px; 
+  top:12px; 
+  width:28px; 
+  height:28px; 
+  border-radius:999px; 
+  background:var(--brand-green); 
+  color:#062b10; 
+  font-weight:800; 
+  display:none; 
+  align-items:center; 
+  justify-content:center; 
+}
+
+.o_smrp_card.selectable.selected .o_smrp_check{ 
+  display:flex; 
+}
+
+/* Boxes & wizard */
+.o_smrp_wizard{ 
+  display:grid; 
+  gap:14px;
+  min-height:0;
+}
+
+.o_smrp_box{ 
+  border:1px dashed #c4cbe0; 
+  border-radius:var(--radius); 
+  background:#fff; 
+  padding:16px;
+  min-height:0;
+}
+
+.o_smrp_box--big{ 
+  padding:22px; 
+}
+
+.o_smrp_name{ 
+  font-weight:800; 
+  font-size:20px; 
+  margin-bottom:6px;
+  word-break:break-word;
+}
+
+.o_smrp_meta{ 
+  font-size:14px; 
+  opacity:.8; 
+}
+
+.o_smrp_counter{ 
+  text-align:center; 
+  font-size:14px; 
+  opacity:.8; 
+}
+
+/* Filters section */
+.o_smrp_filters{
+  position:sticky;
+  top:80px;
+  background:var(--bg);
+  z-index:9;
+  padding:8px 0;
+  margin-bottom:16px;
+}
+
+/* Lotes */
+.o_smrp_lots{ 
+  display:grid; 
+  gap:12px; 
+  grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));
+  max-height:40vh;
+  overflow-y:auto;
+  overflow-x:hidden;
+  padding:4px;
+  scrollbar-width:thin;
+  scrollbar-color:var(--brand-blue-2) transparent;
+}
+
+.o_smrp_lots::-webkit-scrollbar{
+  width:8px;
+}
+
+.o_smrp_lots::-webkit-scrollbar-track{
+  background:transparent;
+}
+
+.o_smrp_lots::-webkit-scrollbar-thumb{
+  background:var(--brand-blue-2);
+  border-radius:4px;
+}
+
+.o_smrp_lots::-webkit-scrollbar-thumb:hover{
+  background:var(--brand-blue);
+}
+
+.o_smrp_lot{ 
+  border:1px solid #d3d8e3; 
+  border-radius:var(--radius); 
+  background:#fff; 
+  padding:16px;
+  display:flex; 
+  align-items:center; 
+  justify-content:space-between; 
+  gap:12px; 
+  cursor:pointer; 
+  box-shadow:var(--shadow); 
+  position:relative;
+  flex-shrink:0;
+}
+
+.o_smrp_lot:hover{ 
+  border-color:var(--brand-blue-2); 
+}
+
+.o_smrp_lot.selected{ 
+  border-color:var(--brand-green); 
+  box-shadow:inset 0 0 0 3px var(--brand-green-2); 
+}
+
+.o_smrp_lot .name{ 
+  font-weight:700; 
+  font-size:18px;
+  word-break:break-word;
+  flex:1;
+}
+
+.o_smrp_lot .qty{ 
+  font-size:16px; 
+  opacity:.9;
+  flex-shrink:0;
+}
+
+.o_smrp_lot .o_smrp_check{ 
+  position:absolute; 
+  right:10px; 
+  top:10px; 
+  width:26px; 
+  height:26px; 
+  display:none; 
+  background:var(--brand-green); 
+  color:#062b10; 
+}
+
+.o_smrp_lot.selected .o_smrp_check{ 
+  display:flex; 
+}
+
+/* States */
+.o_smrp_selected{ 
+  text-align:center; 
+  margin-top:6px; 
+  font-size:16px;
+  position:sticky;
+  bottom:0;
+  background:var(--bg);
+  padding:8px 0;
+  z-index:5;
+}
+
+.badge{ 
+  display:inline-block; 
+  background:var(--brand-blue-3); 
+  color:var(--brand-blue); 
+  padding:4px 10px; 
+  border-radius:999px; 
+  margin-right:6px; 
+  font-weight:700; 
+}
+
+.o_smrp_empty{ 
+  opacity:.7; 
+  font-style:italic; 
+  text-align:center; 
+}
+
+.o_smrp_empty--block{ 
+  padding:14px; 
+  border:1px dashed #cfd6ea; 
+  border-radius:var(--radius); 
+  background:#fff; 
+}
+
+/* Done */
+.o_smrp_done{ 
+  text-align:center; 
+}
+
+.o_smrp_done_icon{ 
+  font-size:48px; 
+}
+
+/* Scrollable content areas */
+.o_smrp_scrollable{
+  max-height:calc(100vh - 200px);
+  overflow-y:auto;
+  overflow-x:hidden;
+  padding-right:4px;
+}
+
+/* Tablet tweaks */
+@media (min-width:768px){
+  :root{ 
+    --fs-base:19px; 
+    --fs-lg:21px; 
+    --fs-xl:32px; 
+  }
   
-  &::-webkit-scrollbar {
-    width: 8px;
+  .o_smrp_input{ 
+    min-width:260px; 
   }
   
-  &::-webkit-scrollbar-track {
-    background: transparent;
+  .o_smrp_cards{ 
+    grid-template-columns:repeat(auto-fill, minmax(260px, 1fr));
+    max-height:65vh;
   }
   
-  &::-webkit-scrollbar-thumb {
-    background: var(--smrp-brand-blue-2);
-    border-radius: 4px;
-    
-    &:hover {
-      background: var(--smrp-brand-blue);
-    }
+  .o_smrp_lots{
+    max-height:50vh;
   }
   
-  scrollbar-width: thin;
-  scrollbar-color: var(--smrp-brand-blue-2) transparent;
-}
-
-.o_smrp_container {
-  max-width: var(--smrp-maxw);
-  margin: 0 auto;
-  display: grid;
-  gap: var(--smrp-gap);
-}
-
-.o_smrp_section {
-  padding: 8px;
-}
-
-/* ========================================================================
-   STEPS - Indicador de progreso
-   ======================================================================== */
-.o_smrp_steps {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  list-style: none;
-  padding: 12px 16px;
-  margin: 0 0 12px;
-  flex-wrap: wrap;
-  background: var(--smrp-bg);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  border-bottom: 1px solid rgba(207, 214, 234, 0.3);
-
-  li {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 12px;
-    border: 1px solid #cfd6ea;
-    border-radius: 999px;
-    background: #fff;
-    font-size: 13px;
-    font-weight: 500;
-    
-    &.active {
-      border-color: var(--smrp-brand-blue);
-      background: var(--smrp-brand-blue-3);
-      color: var(--smrp-brand-blue);
-    }
-    
-    &.done {
-      border-color: var(--smrp-brand-green);
-      background: var(--smrp-brand-green-2);
-      color: #0c3a15;
-    }
-  }
-
-  .num {
-    width: 24px;
-    height: 24px;
-    border-radius: 999px;
-    display: inline-grid;
-    place-items: center;
-    background: #e8ecff;
-    color: var(--smrp-brand-blue);
-    font-weight: 700;
-    font-size: 12px;
+  .o_smrp_filters{
+    top:90px;
   }
 }
 
-/* ========================================================================
-   HEADINGS
-   ======================================================================== */
-.o_smrp h2 {
-  font-size: var(--smrp-fs-xl);
-  color: var(--smrp-brand-blue);
-  text-align: center;
-  margin: 8px 0 12px;
-  font-weight: 600;
-}
-
-/* ========================================================================
-   INPUTS Y FORMULARIOS
-   ======================================================================== */
-.o_smrp_row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: center;
-  justify-content: center;
-}
-
-.o_smrp_label {
-  font-size: var(--smrp-fs-base);
-  min-width: 100px;
-  font-weight: 500;
-}
-
-.o_smrp_input {
-  padding: 11px 14px;
-  border: 1px solid #d3d8e3;
-  border-radius: var(--smrp-radius);
-  min-width: 200px;
-  font-size: var(--smrp-fs-base);
-  background: #fff;
-  transition: all 0.2s ease;
-
-  &--xl {
-    font-size: var(--smrp-fs-lg);
-    padding: 12px 16px;
+@media (min-width:1024px){
+  :root{ 
+    --fs-base:20px; 
+    --fs-lg:22px; 
+    --fs-xl:34px; 
   }
-
-  &:focus {
-    outline: none;
-    border-color: var(--smrp-brand-blue);
-    box-shadow: 0 0 0 3px var(--smrp-brand-blue-3);
+  
+  .o_smrp_input{ 
+    min-width:300px; 
+  }
+  
+  .o_smrp_cards{ 
+    grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));
+    max-height:70vh;
+  }
+  
+  .o_smrp_lots{
+    max-height:55vh;
+  }
+  
+  .o_smrp_filters{
+    top:95px;
   }
 }
 
-/* ========================================================================
-   BOTONES
-   ======================================================================== */
-.o_smrp_btn {
-  height: var(--smrp-tap);
-  padding: 0 18px;
-  border-radius: var(--smrp-radius);
-  border: 1px solid var(--smrp-brand-blue);
-  background: var(--smrp-brand-blue);
-  color: #fff;
-  font-size: var(--smrp-fs-base);
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: var(--smrp-shadow);
-  flex-shrink: 0;
-  transition: all 0.2s ease;
-
-  &:hover:not(:disabled) {
-    filter: brightness(1.05);
-    transform: translateY(-1px);
+/* Mobile responsive */
+@media (max-width:767px){
+  .o_smrp{
+    padding:8px;
   }
-
-  &:active:not(:disabled) {
-    transform: translateY(0);
+  
+  .o_smrp_cards{
+    grid-template-columns:1fr;
+    max-height:50vh;
   }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+  
+  .o_smrp_lots{
+    grid-template-columns:1fr;
+    max-height:35vh;
   }
-
-  &--ghost {
-    background: #fff;
-    color: var(--smrp-brand-blue);
+  
+  .o_smrp_row{
+    flex-direction:column;
+    align-items:stretch;
   }
-
-  &--xl {
-    min-width: 160px;
+  
+  .o_smrp_input{
+    min-width:100%;
   }
-
-  &.confirm {
-    background: var(--smrp-brand-green);
-    border-color: var(--smrp-brand-green);
-    color: #062b10;
+  
+  .o_smrp_actions{
+    flex-direction:column;
   }
-}
-
-/* ========================================================================
-   ACTIONS BAR
-   ======================================================================== */
-.o_smrp_actions {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-  align-items: center;
-  flex-wrap: wrap;
-  padding: 8px 0;
-
-  &--end {
-    justify-content: flex-end;
+  
+  .o_smrp_btn{
+    width:100%;
   }
-
-  &--center {
-    justify-content: center;
-  }
-
-  &--sticky {
-    position: sticky;
-    bottom: 0;
-    padding: 12px 16px;
-    margin: 0 -16px -16px;
-    background: linear-gradient(180deg, 
-      rgba(246, 248, 255, 0) 0%, 
-      rgba(246, 248, 255, 0.97) 20%, 
-      rgba(246, 248, 255, 1) 50%
-    );
-    backdrop-filter: blur(8px);
-    z-index: 50;
-    border-top: 1px solid rgba(207, 214, 234, 0.2);
-  }
-}
-
-/* ========================================================================
-   FILTERS - Barra de filtros sticky
-   ======================================================================== */
-.o_smrp_filters {
-  position: sticky;
-  top: var(--smrp-header-height);
-  background: var(--smrp-bg);
-  z-index: 90;
-  padding: 12px 0;
-  margin-bottom: 16px;
-  border-bottom: 1px solid rgba(207, 214, 234, 0.3);
-}
-
-/* ========================================================================
-   CARDS - Grid de tarjetas sin scroll anidado
-   ======================================================================== */
-.o_smrp_cards {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  padding: 4px;
-  margin-bottom: 16px;
-
-  &--center {
-    justify-items: center;
-  }
-}
-
-.o_smrp_card {
-  width: 100%;
-  max-width: 300px;
-  border: 1px solid #d3d8e3;
-  border-radius: var(--smrp-radius);
-  background: var(--smrp-card);
-  box-shadow: var(--smrp-shadow);
-  padding: 16px;
-  text-align: center;
-  position: relative;
-  transition: all 0.2s ease;
-
-  &_icon {
-    font-size: 28px;
-    margin-bottom: 8px;
-    line-height: 1;
-  }
-
-  &_title {
-    font-size: var(--smrp-fs-lg);
-    font-weight: 600;
-    color: var(--smrp-ink);
-    margin-bottom: 4px;
-    line-height: 1.3;
-  }
-
-  &_sub {
-    font-size: 14px;
-    color: #6b7996;
-  }
-
-  &.selectable {
-    cursor: pointer;
-
-    &:hover {
-      border-color: var(--smrp-brand-blue-2);
-      box-shadow: 0 8px 24px rgba(39, 55, 190, 0.15);
-      transform: translateY(-2px);
-    }
-
-    &:active {
-      transform: translateY(0);
-    }
-  }
-
-  &.selected {
-    border-color: var(--smrp-brand-blue);
-    border-width: 2px;
-    background: var(--smrp-brand-blue-3);
-    padding: 15px; // Compensar borde más grueso
-
-    .o_smrp_check {
-      display: grid;
-    }
-  }
-}
-
-.o_smrp_check {
-  position: absolute;
-  top: -10px;
-  right: -10px;
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  background: var(--smrp-brand-green);
-  color: #062b10;
-  display: none;
-  place-items: center;
-  font-weight: 700;
-  font-size: 14px;
-  box-shadow: 0 4px 12px rgba(62, 242, 78, 0.4);
-}
-
-/* ========================================================================
-   SELECTED BANNER
-   ======================================================================== */
-.o_smrp_selected {
-  position: sticky;
-  bottom: 0;
-  padding: 14px 16px;
-  margin: 16px -16px -16px;
-  background: linear-gradient(180deg, 
-    rgba(246, 248, 255, 0) 0%, 
-    rgba(246, 248, 255, 0.97) 20%, 
-    rgba(246, 248, 255, 1) 50%
-  );
-  backdrop-filter: blur(8px);
-  border-radius: var(--smrp-radius) var(--smrp-radius) 0 0;
-  text-align: center;
-  color: var(--smrp-ink);
-  font-size: var(--smrp-fs-base);
-  z-index: 50;
-  border-top: 1px solid rgba(207, 214, 234, 0.3);
-
-  .badge {
-    display: inline-block;
-    padding: 4px 10px;
-    background: var(--smrp-brand-green-2);
-    color: #062b10;
-    border-radius: 8px;
-    font-size: 12px;
-    font-weight: 600;
-    margin-right: 8px;
-  }
-
-  strong {
-    font-weight: 600;
-  }
-}
-
-/* ========================================================================
-   WIZARD
-   ======================================================================== */
-.o_smrp_wizard {
-  display: grid;
-  gap: 16px;
-}
-
-.o_smrp_counter {
-  text-align: center;
-  font-size: var(--smrp-fs-base);
-  color: var(--smrp-brand-blue);
-  font-weight: 600;
-  padding: 10px;
-  background: #fff;
-  border-radius: var(--smrp-radius);
-  box-shadow: var(--smrp-shadow);
-}
-
-/* ========================================================================
-   BOX
-   ======================================================================== */
-.o_smrp_box {
-  padding: 18px;
-  background: #fff;
-  border-radius: var(--smrp-radius);
-  box-shadow: var(--smrp-shadow);
-  display: grid;
-  gap: 12px;
-
-  &--big {
-    padding: 22px;
-  }
-}
-
-.o_smrp_name {
-  font-size: var(--smrp-fs-lg);
-  font-weight: 600;
-  color: var(--smrp-ink);
-  line-height: 1.3;
-}
-
-.o_smrp_meta {
-  font-size: 14px;
-  color: #6b7996;
-
-  strong {
-    font-weight: 600;
-    color: var(--smrp-ink);
-  }
-}
-
-/* ========================================================================
-   LOTS - Grid de lotes sin scroll anidado
-   ======================================================================== */
-.o_smrp_lots {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 10px;
-  padding: 4px;
-  margin-bottom: 16px;
-}
-
-.o_smrp_lot {
-  padding: 14px;
-  border: 1px solid #d3d8e3;
-  border-radius: var(--smrp-radius);
-  background: #fff;
-  cursor: pointer;
-  position: relative;
-  transition: all 0.2s ease;
-
-  .name {
-    font-size: var(--smrp-fs-lg);
-    font-weight: 600;
-    color: var(--smrp-ink);
-    margin-bottom: 4px;
-    line-height: 1.3;
-  }
-
-  .qty {
-    font-size: 14px;
-    color: #6b7996;
-
-    strong {
-      font-weight: 600;
-      color: var(--smrp-ink);
-    }
-  }
-
-  &:hover {
-    border-color: var(--smrp-brand-blue-2);
-    box-shadow: 0 4px 16px rgba(39, 55, 190, 0.12);
-    transform: translateY(-1px);
-  }
-
-  &:active {
-    transform: translateY(0);
-  }
-
-  &.selected {
-    border-color: var(--smrp-brand-blue);
-    border-width: 2px;
-    background: var(--smrp-brand-blue-3);
-    padding: 13px; // Compensar borde más grueso
-
-    .o_smrp_check {
-      display: grid;
-    }
-  }
-
-  .o_smrp_check {
-    top: -10px;
-    right: -10px;
-  }
-}
-
-/* ========================================================================
-   EMPTY STATE
-   ======================================================================== */
-.o_smrp_empty {
-  text-align: center;
-  padding: 32px 16px;
-  color: #6b7996;
-  font-size: var(--smrp-fs-base);
-
-  &--block {
-    display: block;
-    padding: 20px;
-    background: #f9fafb;
-    border-radius: var(--smrp-radius);
-    border: 1px dashed #d3d8e3;
-  }
-}
-
-/* ========================================================================
-   DONE SCREEN
-   ======================================================================== */
-.o_smrp_done {
-  text-align: center;
-  padding: 32px 0;
-
-  &_icon {
-    font-size: 72px;
-    margin-bottom: 16px;
-    animation: bounce 0.6s ease;
-  }
-}
-
-@keyframes bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
-}
-
-/* ========================================================================
-   SCROLLABLE OVERRIDE (si se necesita en casos muy específicos)
-   ======================================================================== */
-.o_smrp_scrollable {
-  overflow: visible !important;
-  max-height: none !important;
-}
-
-/* ========================================================================
-   RESPONSIVE
-   ======================================================================== */
-@media (max-width: 767px) {
-  .o_smrp_wrapper {
-    padding: 12px;
-  }
-
-  .o_smrp_cards {
-    grid-template-columns: 1fr;
-  }
-
-  .o_smrp_lots {
-    grid-template-columns: 1fr;
-  }
-
-  .o_smrp_card {
-    max-width: 100%;
-  }
-
-  .o_smrp_input {
-    min-width: 100%;
-  }
-
-  .o_smrp_filters .o_smrp_row {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .o_smrp_actions {
-    flex-direction: column;
-
-    .o_smrp_btn {
-      width: 100%;
-    }
-  }
-
-  .o_smrp_steps {
-    gap: 6px;
-    padding: 8px;
-
-    li {
-      font-size: 12px;
-      padding: 6px 10px;
-    }
-
-    .num {
-      width: 22px;
-      height: 22px;
-      font-size: 11px;
-    }
-  }
-}
-
-@media (min-width: 768px) and (max-width: 1023px) {
-  .o_smrp_cards {
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  }
-
-  .o_smrp_lots {
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  }
-}
-
-@media (min-width: 1024px) {
-  .o_smrp_cards {
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  }
-
-  .o_smrp_lots {
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  
+  .o_smrp_filters{
+    top:70px;
   }
 }
 

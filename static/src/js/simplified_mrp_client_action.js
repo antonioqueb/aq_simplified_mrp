@@ -4,11 +4,6 @@ import { Component, useState, onWillStart } from '@odoo/owl';
 import { useService } from '@web/core/utils/hooks';
 
 class SimplifiedMrp extends Component {
-    // AGREGADO: Definición de props estáticas (requerido en Odoo 16+)
-    static props = {
-        '*': true,  // Permite cualquier prop del padre (acción cliente)
-    };
-
     setup() {
         this.orm = useService('orm');
         this.action = useService('action');
