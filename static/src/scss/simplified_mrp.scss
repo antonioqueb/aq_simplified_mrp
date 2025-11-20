@@ -1,10 +1,9 @@
 /* static/src/scss/simplified_mrp.scss */
 /* ========================================================================
    SMRP - Simplified MRP System
-   VERSIÓN CORREGIDA: Scroll funcional + Layout optimizado
+   Versión: Odoo 18 Optimized
    ======================================================================== */
 
-/* Variables con !default para permitir override */
 :root {
   --smrp-brand-blue: #2737BE;
   --smrp-brand-blue-2: #3B51E0;
@@ -23,36 +22,45 @@
   --smrp-fs-lg: 17px;
   --smrp-fs-xl: 22px;
   --smrp-header-height: 56px;
-  --smrp-filters-height: 68px;
 }
 
 /* ========================================================================
-   CONTENEDOR PRINCIPAL - CORREGIDO PARA SCROLL FUNCIONAL
+   CONTENEDOR PRINCIPAL
    ======================================================================== */
 .o_smrp {
   background: var(--smrp-bg);
   color: var(--smrp-ink);
-  min-height: 100vh;
-  overflow-y: auto !important;
+  height: 100%;
+  min-height: 100vh; /* Asegura altura completa */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* El padre NO hace scroll, lo hace el wrapper */
+  padding: 0;
+}
+
+/* Wrapper interno con scroll - CLAVE PARA EL FUNCIONAMIENTO */
+.o_smrp_wrapper {
+  flex: 1;
+  overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  padding: 0;
+  padding: 16px;
+  padding-bottom: 100px; /* Espacio extra al final */
   
-  /* Scroll personalizado */
   &::-webkit-scrollbar {
     width: 8px;
   }
   
   &::-webkit-scrollbar-track {
-    background: rgba(0,0,0,0.05);
+    background: transparent;
   }
   
   &::-webkit-scrollbar-thumb {
-    background: var(--smrp-brand-blue-2);
+    background: #cbd5e1;
     border-radius: 4px;
     
     &:hover {
-      background: var(--smrp-brand-blue);
+      background: var(--smrp-brand-blue-2);
     }
   }
   
@@ -63,16 +71,16 @@
 .o_smrp_container {
   max-width: var(--smrp-maxw);
   margin: 0 auto;
-  width: 100%;
-  padding: 16px;
+  display: grid;
+  gap: var(--smrp-gap);
 }
 
 .o_smrp_section {
-  margin-bottom: 24px;
+  padding: 8px;
 }
 
 /* ========================================================================
-   STEPS - Indicador de progreso
+   STEPS
    ======================================================================== */
 .o_smrp_steps {
   display: flex;
@@ -138,7 +146,7 @@
 }
 
 /* ========================================================================
-   INPUTS Y FORMULARIOS
+   INPUTS
    ======================================================================== */
 .o_smrp_row {
   display: flex;
@@ -243,9 +251,9 @@
 
   &--sticky {
     position: sticky;
-    bottom: 8px;
+    bottom: 0;
     padding: 12px 16px;
-    margin: 16px -16px 8px;
+    margin: 0 -16px -16px;
     background: linear-gradient(180deg, 
       rgba(246, 248, 255, 0) 0%, 
       rgba(246, 248, 255, 0.97) 20%, 
@@ -254,16 +262,15 @@
     backdrop-filter: blur(8px);
     z-index: 50;
     border-top: 1px solid rgba(207, 214, 234, 0.2);
-    border-radius: var(--smrp-radius);
   }
 }
 
 /* ========================================================================
-   FILTERS - Barra de filtros sticky
+   FILTERS
    ======================================================================== */
 .o_smrp_filters {
   position: sticky;
-  top: var(--smrp-header-height);
+  top: 0; /* Ajustado para que funcione dentro del wrapper */
   background: var(--smrp-bg);
   z-index: 90;
   padding: 12px 0;
@@ -272,38 +279,39 @@
 }
 
 /* ========================================================================
-   CARDS - CORREGIDO PARA ALMACENES EN HORIZONTAL
+   HORIZONTAL SCROLL (NUEVO PARA ALMACENES)
+   ======================================================================== */
+.o_smrp_horizontal_scroll {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 4px 4px 20px 4px;
+  margin-bottom: 16px;
+  width: 100%;
+  -webkit-overflow-scrolling: touch;
+
+  /* Scrollbar visible pero sutil */
+  &::-webkit-scrollbar { height: 8px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+
+  .o_smrp_card {
+    flex: 0 0 auto; /* No encoger */
+    width: 260px; 
+    margin-bottom: 0;
+  }
+}
+
+/* ========================================================================
+   CARDS
    ======================================================================== */
 .o_smrp_cards {
   display: grid;
   gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   padding: 4px;
   margin-bottom: 16px;
-
-  /* Grid responsive por defecto */
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-
-  /* Para almacenes - layout horizontal optimizado */
-  &--warehouses {
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    max-width: 100%;
-    
-    @media (min-width: 768px) {
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    }
-    
-    @media (min-width: 1024px) {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 16px;
-      
-      .o_smrp_card {
-        flex: 0 1 200px;
-        max-width: 250px;
-      }
-    }
-  }
 
   &--center {
     justify-items: center;
@@ -343,13 +351,11 @@
 
   &.selectable {
     cursor: pointer;
-
     &:hover {
       border-color: var(--smrp-brand-blue-2);
       box-shadow: 0 8px 24px rgba(39, 55, 190, 0.15);
       transform: translateY(-2px);
     }
-
     &:active {
       transform: translateY(0);
     }
@@ -359,11 +365,8 @@
     border-color: var(--smrp-brand-blue);
     border-width: 2px;
     background: var(--smrp-brand-blue-3);
-    padding: 15px; // Compensar borde más grueso
-
-    .o_smrp_check {
-      display: grid;
-    }
+    padding: 15px;
+    .o_smrp_check { display: grid; }
   }
 }
 
@@ -388,21 +391,21 @@
    ======================================================================== */
 .o_smrp_selected {
   position: sticky;
-  bottom: 8px;
+  bottom: 0;
   padding: 14px 16px;
-  margin: 16px -16px 8px;
+  margin: 16px -16px -16px;
   background: linear-gradient(180deg, 
     rgba(246, 248, 255, 0) 0%, 
     rgba(246, 248, 255, 0.97) 20%, 
     rgba(246, 248, 255, 1) 50%
   );
   backdrop-filter: blur(8px);
-  border-radius: var(--smrp-radius);
+  border-radius: var(--smrp-radius) var(--smrp-radius) 0 0;
   text-align: center;
   color: var(--smrp-ink);
   font-size: var(--smrp-fs-base);
   z-index: 50;
-  border: 1px solid rgba(207, 214, 234, 0.3);
+  border-top: 1px solid rgba(207, 214, 234, 0.3);
 
   .badge {
     display: inline-block;
@@ -415,13 +418,11 @@
     margin-right: 8px;
   }
 
-  strong {
-    font-weight: 600;
-  }
+  strong { font-weight: 600; }
 }
 
 /* ========================================================================
-   WIZARD
+   WIZARD Y LISTAS
    ======================================================================== */
 .o_smrp_wizard {
   display: grid;
@@ -439,9 +440,6 @@
   box-shadow: var(--smrp-shadow);
 }
 
-/* ========================================================================
-   BOX
-   ======================================================================== */
 .o_smrp_box {
   padding: 18px;
   background: #fff;
@@ -449,10 +447,7 @@
   box-shadow: var(--smrp-shadow);
   display: grid;
   gap: 12px;
-
-  &--big {
-    padding: 22px;
-  }
+  &--big { padding: 22px; }
 }
 
 .o_smrp_name {
@@ -465,16 +460,9 @@
 .o_smrp_meta {
   font-size: 14px;
   color: #6b7996;
-
-  strong {
-    font-weight: 600;
-    color: var(--smrp-ink);
-  }
+  strong { font-weight: 600; color: var(--smrp-ink); }
 }
 
-/* ========================================================================
-   LOTS - Grid de lotes con scroll funcional
-   ======================================================================== */
 .o_smrp_lots {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -497,55 +485,29 @@
     font-weight: 600;
     color: var(--smrp-ink);
     margin-bottom: 4px;
-    line-height: 1.3;
   }
-
-  .qty {
-    font-size: 14px;
-    color: #6b7996;
-
-    strong {
-      font-weight: 600;
-      color: var(--smrp-ink);
-    }
-  }
-
+  .qty { font-size: 14px; color: #6b7996; }
+  
   &:hover {
     border-color: var(--smrp-brand-blue-2);
     box-shadow: 0 4px 16px rgba(39, 55, 190, 0.12);
     transform: translateY(-1px);
   }
-
-  &:active {
-    transform: translateY(0);
-  }
-
   &.selected {
     border-color: var(--smrp-brand-blue);
     border-width: 2px;
     background: var(--smrp-brand-blue-3);
-    padding: 13px; // Compensar borde más grueso
-
-    .o_smrp_check {
-      display: grid;
-    }
+    padding: 13px;
+    .o_smrp_check { display: grid; }
   }
-
-  .o_smrp_check {
-    top: -10px;
-    right: -10px;
-  }
+  .o_smrp_check { top: -10px; right: -10px; }
 }
 
-/* ========================================================================
-   EMPTY STATE
-   ======================================================================== */
 .o_smrp_empty {
   text-align: center;
   padding: 32px 16px;
   color: #6b7996;
   font-size: var(--smrp-fs-base);
-
   &--block {
     display: block;
     padding: 20px;
@@ -555,13 +517,9 @@
   }
 }
 
-/* ========================================================================
-   DONE SCREEN
-   ======================================================================== */
 .o_smrp_done {
   text-align: center;
   padding: 32px 0;
-
   &_icon {
     font-size: 72px;
     margin-bottom: 16px;
@@ -583,10 +541,10 @@
   justify-content: center;
   padding: 12px;
   background: var(--smrp-bg);
-  position: sticky;
-  top: 0;
+  /* Nav fija arriba */
   z-index: 110;
   border-bottom: 1px solid #d3d8e3;
+  flex-shrink: 0; /* No encoger */
 }
 
 .o_smrp_nav_btn {
@@ -598,11 +556,8 @@
   font-size: var(--smrp-fs-base);
   cursor: pointer;
   transition: all .2s;
-
-  &:hover {
-    border-color: var(--smrp-brand-blue-2);
-  }
-
+  
+  &:hover { border-color: var(--smrp-brand-blue-2); }
   &.active {
     background: var(--smrp-brand-blue);
     color: #fff;
@@ -611,14 +566,13 @@
 }
 
 /* ========================================================================
-   LISTA - CORREGIDA PARA SCROLL FUNCIONAL
+   LISTA DE ÓRDENES (Scroll fluido)
    ======================================================================== */
 .o_smrp_list {
   display: grid;
   gap: 12px;
   padding: 4px;
-  margin-bottom: 16px;
-  /* REMOVIDO: max-height y overflow para permitir scroll natural */
+  /* Se eliminaron restricciones de altura para que scrollee la página entera */
 }
 
 .o_smrp_list_item {
@@ -639,27 +593,10 @@
   }
 }
 
-.o_smrp_list_icon {
-  font-size: 32px;
-  flex-shrink: 0;
-}
-
-.o_smrp_list_content {
-  flex: 1;
-  min-width: 0;
-}
-
-.o_smrp_list_title {
-  font-weight: 700;
-  font-size: 18px;
-  margin-bottom: 4px;
-  word-break: break-word;
-}
-
-.o_smrp_list_meta {
-  font-size: 14px;
-  opacity: .8;
-}
+.o_smrp_list_icon { font-size: 32px; flex-shrink: 0; }
+.o_smrp_list_content { flex: 1; min-width: 0; }
+.o_smrp_list_title { font-weight: 700; font-size: 18px; margin-bottom: 4px; word-break: break-word; }
+.o_smrp_list_meta { font-size: 14px; opacity: .8; }
 
 .o_smrp_list_badge {
   padding: 6px 12px;
@@ -667,161 +604,31 @@
   font-size: 13px;
   font-weight: 700;
   flex-shrink: 0;
-
-  &.success {
-    background: var(--smrp-brand-green-2);
-    color: #062b10;
-  }
-
-  &.danger {
-    background: #ffe0e0;
-    color: #8b0000;
-  }
-
-  &.warning {
-    background: #fff4e0;
-    color: #8b5a00;
-  }
-
-  &.info {
-    background: var(--smrp-brand-blue-3);
-    color: var(--smrp-brand-blue);
-  }
+  &.success { background: var(--smrp-brand-green-2); color: #062b10; }
+  &.danger { background: #ffe0e0; color: #8b0000; }
+  &.warning { background: #fff4e0; color: #8b5a00; }
+  &.info { background: var(--smrp-brand-blue-3); color: var(--smrp-brand-blue); }
 }
 
-/* ========================================================================
-   DETALLE
-   ======================================================================== */
+/* Detalle */
 .o_smrp_detail_row {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 8px 0;
   border-bottom: 1px solid #f0f0f0;
-
-  &:last-child {
-    border-bottom: none;
-  }
+  &:last-child { border-bottom: none; }
 }
+.o_smrp_detail_label { font-weight: 700; min-width: 180px; flex-shrink: 0; }
 
-.o_smrp_detail_label {
-  font-weight: 700;
-  min-width: 180px;
-  flex-shrink: 0;
-}
-
-/* ========================================================================
-   RESPONSIVE
-   ======================================================================== */
+/* Responsive */
 @media (max-width: 767px) {
-  .o_smrp_container {
-    padding: 12px;
-  }
-
-  .o_smrp_cards {
-    grid-template-columns: 1fr;
-    
-    /* Almacenes en móviles - stack vertical pero optimizado */
-    &--warehouses {
-      grid-template-columns: 1fr;
-      gap: 10px;
-    }
-  }
-
-  .o_smrp_lots {
-    grid-template-columns: 1fr;
-  }
-
-  .o_smrp_card {
-    max-width: 100%;
-  }
-
-  .o_smrp_input {
-    min-width: 100%;
-  }
-
-  .o_smrp_filters .o_smrp_row {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .o_smrp_actions {
-    flex-direction: column;
-
-    .o_smrp_btn {
-      width: 100%;
-    }
-  }
-
-  .o_smrp_steps {
-    gap: 6px;
-    padding: 8px;
-
-    li {
-      font-size: 12px;
-      padding: 6px 10px;
-    }
-
-    .num {
-      width: 22px;
-      height: 22px;
-      font-size: 11px;
-    }
-  }
-
-  .o_smrp_nav {
-    flex-direction: column;
-    gap: 6px;
-
-    .o_smrp_nav_btn {
-      width: 100%;
-    }
-  }
-}
-
-@media (min-width: 768px) and (max-width: 1023px) {
-  .o_smrp_cards {
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    
-    &--warehouses {
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    }
-  }
-
-  .o_smrp_lots {
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  }
-}
-
-@media (min-width: 1024px) {
-  .o_smrp_cards {
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  }
-
-  .o_smrp_lots {
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  }
-}
-
-/* ========================================================================
-   UTILIDADES PARA FORZAR SCROLL CUANDO SEA NECESARIO
-   ======================================================================== */
-.o_smrp_force_scroll {
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-}
-
-/* Para contenedores que específicamente necesiten altura limitada */
-.o_smrp_limited_height {
-  max-height: 60vh;
-  overflow-y: auto;
-  
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-  
-  &::-webkit-scrollbar-thumb {
-    background: var(--smrp-brand-blue-2);
-    border-radius: 3px;
-  }
+  .o_smrp_wrapper { padding: 12px; padding-bottom: 100px; }
+  .o_smrp_cards { grid-template-columns: 1fr; }
+  .o_smrp_lots { grid-template-columns: 1fr; }
+  .o_smrp_card { max-width: 100%; }
+  .o_smrp_input { min-width: 100%; }
+  .o_smrp_filters .o_smrp_row { flex-direction: column; gap: 8px; }
+  .o_smrp_actions { flex-direction: column; .o_smrp_btn { width: 100%; } }
+  .o_smrp_steps { gap: 6px; padding: 8px; li { font-size: 12px; padding: 6px 10px; } .num { width: 22px; height: 22px; font-size: 11px; } }
 }
