@@ -342,18 +342,38 @@ class AqSimplifiedMrpApi(models.TransientModel):
                 finished_lot = None
                 if product.tracking in ['lot', 'serial']:
                     Lot = self.env['stock.lot']
-                    finished_lot = Lot.search([
-                        ('product_id', '=', product.id),
-                        ('company_id', '=', mo.company_id.id)
-                    ], limit=1)
                     
-                    if not finished_lot:
-                        finished_lot = Lot.create({
-                            'name': f"{mo.name}-{product.default_code or product.name}",
-                            'product_id': product.id,
-                            'company_id': mo.company_id.id,
-                        })
-                        self._logdbg("Lote creado para producto terminado", finished_lot.id, finished_lot.name)
+                    # Generar nombre del lote: FECHA-REF-CONSECUTIVO
+                    from datetime import datetime
+                    date_str = datetime.now().strftime('%Y%m%d')
+                    ref = product.default_code or 'PROD'
+                    
+                    # Buscar el último consecutivo del día para este producto
+                    existing_lots = Lot.search([
+                        ('product_id', '=', product.id),
+                        ('company_id', '=', mo.company_id.id),
+                        ('name', 'like', f"{date_str}-{ref}-%")
+                    ], order='name desc', limit=1)
+                    
+                    if existing_lots:
+                        # Extraer el consecutivo del último lote
+                        last_name = existing_lots[0].name
+                        try:
+                            last_consecutive = int(last_name.split('-')[-1])
+                            consecutive = last_consecutive + 1
+                        except (ValueError, IndexError):
+                            consecutive = 1
+                    else:
+                        consecutive = 1
+                    
+                    lot_name = f"{date_str}-{ref}-{consecutive:03d}"
+                    
+                    finished_lot = Lot.create({
+                        'name': lot_name,
+                        'product_id': product.id,
+                        'company_id': mo.company_id.id,
+                    })
+                    self._logdbg("Lote creado para producto terminado", finished_lot.id, finished_lot.name)
 
                 finished_move_line = self.env['stock.move.line'].create({
                     'move_id': mo.move_finished_ids[0].id,
