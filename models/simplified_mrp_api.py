@@ -337,55 +337,66 @@ class AqSimplifiedMrpApi(models.TransientModel):
 
             # ============== AUTOMATIZACIÓN COMPLETA DE LA MO ==============
             
-            # 1. Crear el move line para el producto terminado si no existe
-            if not mo.move_finished_ids.move_line_ids:
-                finished_lot = None
-                if product.tracking in ['lot', 'serial']:
-                    Lot = self.env['stock.lot']
-                    
-                    # Generar nombre del lote: FECHA-REF-CONSECUTIVO
-                    from datetime import datetime
-                    date_str = datetime.now().strftime('%Y%m%d')
-                    ref = product.default_code or 'PROD'
-                    
-                    # Buscar el último consecutivo del día para este producto
-                    existing_lots = Lot.search([
-                        ('product_id', '=', product.id),
-                        ('company_id', '=', mo.company_id.id),
-                        ('name', 'like', f"{date_str}-{ref}-%")
-                    ], order='name desc', limit=1)
-                    
-                    if existing_lots:
-                        # Extraer el consecutivo del último lote
-                        last_name = existing_lots[0].name
-                        try:
-                            last_consecutive = int(last_name.split('-')[-1])
-                            consecutive = last_consecutive + 1
-                        except (ValueError, IndexError):
-                            consecutive = 1
-                    else:
+            # 1. Crear/actualizar el move line para el producto terminado
+            finished_lot = None
+            if product.tracking in ['lot', 'serial']:
+                Lot = self.env['stock.lot']
+                
+                # Generar nombre del lote: FECHA-REF-CONSECUTIVO
+                from datetime import datetime
+                date_str = datetime.now().strftime('%Y%m%d')
+                ref = product.default_code or 'PROD'
+                
+                # Buscar el último consecutivo del día para este producto
+                existing_lots = Lot.search([
+                    ('product_id', '=', product.id),
+                    ('company_id', '=', mo.company_id.id),
+                    ('name', 'like', f"{date_str}-{ref}-%")
+                ], order='name desc', limit=1)
+                
+                if existing_lots:
+                    # Extraer el consecutivo del último lote
+                    last_name = existing_lots[0].name
+                    try:
+                        last_consecutive = int(last_name.split('-')[-1])
+                        consecutive = last_consecutive + 1
+                    except (ValueError, IndexError):
                         consecutive = 1
-                    
-                    lot_name = f"{date_str}-{ref}-{consecutive:03d}"
-                    
-                    finished_lot = Lot.create({
-                        'name': lot_name,
-                        'product_id': product.id,
-                        'company_id': mo.company_id.id,
-                    })
-                    self._logdbg("Lote creado para producto terminado", finished_lot.id, finished_lot.name)
-
-                finished_move_line = self.env['stock.move.line'].create({
-                    'move_id': mo.move_finished_ids[0].id,
-                    'company_id': mo.company_id.id,
+                else:
+                    consecutive = 1
+                
+                lot_name = f"{date_str}-{ref}-{consecutive:03d}"
+                
+                finished_lot = Lot.create({
+                    'name': lot_name,
                     'product_id': product.id,
-                    'product_uom_id': product.uom_id.id,
-                    'location_id': mo.location_src_id.id,
-                    'location_dest_id': mo.location_dest_id.id,
-                    'lot_id': finished_lot.id if finished_lot else False,
-                    'quantity': qty,
+                    'company_id': mo.company_id.id,
                 })
-                self._logdbg("Move line creado para producto terminado", finished_move_line.id, "lot", finished_lot.id if finished_lot else None)
+                self._logdbg("Lote creado para producto terminado", finished_lot.id, finished_lot.name)
+            
+            # Verificar si ya existe move_line, si sí actualizarlo, si no crearlo
+            if mo.move_finished_ids:
+                finished_move = mo.move_finished_ids[0]
+                if finished_move.move_line_ids:
+                    # Ya existe move_line, actualizarlo
+                    for ml in finished_move.move_line_ids:
+                        if finished_lot:
+                            ml.lot_id = finished_lot.id
+                        ml.quantity = qty
+                        self._logdbg("Move line actualizado para producto terminado", ml.id, "lot", finished_lot.id if finished_lot else None)
+                else:
+                    # No existe move_line, crearlo
+                    finished_move_line = self.env['stock.move.line'].create({
+                        'move_id': finished_move.id,
+                        'company_id': mo.company_id.id,
+                        'product_id': product.id,
+                        'product_uom_id': product.uom_id.id,
+                        'location_id': mo.location_src_id.id,
+                        'location_dest_id': mo.location_dest_id.id,
+                        'lot_id': finished_lot.id if finished_lot else False,
+                        'quantity': qty,
+                    })
+                    self._logdbg("Move line creado para producto terminado", finished_move_line.id, "lot", finished_lot.id if finished_lot else None)
 
             # 2. Marcar como iniciado
             try:
