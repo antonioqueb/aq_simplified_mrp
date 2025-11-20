@@ -118,9 +118,9 @@
                   <div class="o_smrp_empty" t-if="!state.compSearchResults.length &amp;&amp; state.compSearchQuery">Sin coincidencias.</div>
                   
                   <!-- Botón para continuar a lotes si ya hay ingredientes -->
-                  <div class="o_smrp_actions o_smrp_actions--center" t-if="state.components.length">
+                  <div class="o_smrp_actions o_smrp_actions--sticky" t-if="state.components.length">
                     <button class="o_smrp_btn confirm o_smrp_btn--xl" t-on-click="() => this.continueToLots()">
-                      Continuar a selección de lotes
+                      ✓ Continuar a selección de lotes (<t t-esc="state.components.length"/> ingredientes)
                     </button>
                   </div>
                 </div>
@@ -145,7 +145,7 @@
                     <button class="o_smrp_btn o_smrp_btn--ghost o_smrp_btn--xl" t-att-disabled="state.compIndex === 0" t-on-click="() => this.prevComponent()">Atrás</button>
                     <button class="o_smrp_btn confirm o_smrp_btn--xl" t-on-click="() => this.nextComponent()">
                       <t t-if="state.compIndex &lt; state.components.length - 1">Siguiente ingrediente</t>
-                      <t t-else="">Agregar más ingredientes</t>
+                      <t t-else="">Listo, agregar más</t>
                     </button>
                   </div>
                 </div>
