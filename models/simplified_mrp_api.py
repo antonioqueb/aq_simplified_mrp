@@ -108,7 +108,7 @@ class AqSimplifiedMrpApi(models.TransientModel):
                 'name': p.display_name,
                 'uom_id': p.uom_id.id,
                 'uom_name': p.uom_id.name,
-                'tracking': p.tracking,  # IMPORTANTE: Enviar tracking al frontend
+                'tracking': p.tracking,
             } for p in prods]
         except Exception as e:
             _logger.error("Error searching components: %s", e)
@@ -159,24 +159,20 @@ class AqSimplifiedMrpApi(models.TransientModel):
 
             Quant = self.env['stock.quant'].sudo()
             
-            # Buscar todas las ubicaciones internas bajo el almacén
             internal_locs = self.env['stock.location'].search([
                 ('location_id', 'child_of', view_loc.id),
                 ('usage', '=', 'internal')
             ])
             
-            # DOMINIO CORREGIDO: Buscamos todo el stock positivo, con o sin lote
             domain = [
                 ('product_id', '=', product.id),
                 ('location_id', 'in', internal_locs.ids),
                 ('quantity', '>', 0),
             ]
             
-            # Debug para verificar si Odoo ve stock
             total_stock = Quant.search_count(domain)
             self._logdbg("Stock total encontrado (con o sin lote):", total_stock)
 
-            # Agrupamos por lote (Odoo agrupa los False/None juntos automáticamente)
             groups = Quant.read_group(
                 domain,
                 ['quantity:sum', 'reserved_quantity:sum'],
@@ -191,7 +187,7 @@ class AqSimplifiedMrpApi(models.TransientModel):
             out, total_qty = [], 0.0
             
             for g in groups:
-                lot_data = g.get('lot_id') # Puede ser (id, name) o False
+                lot_data = g.get('lot_id')
                 lot_id = lot_data[0] if lot_data else False
                 
                 qsum = self._grp_sum(g, 'quantity')
@@ -202,15 +198,12 @@ class AqSimplifiedMrpApi(models.TransientModel):
                 
                 if qty > 0:
                     if lot_id:
-                        # Es un lote real
                         out.append({'id': lot_id, 'name': lot_data[1], 'qty_available': qty})
                     else:
-                        # Es stock general (sin lote asignado)
                         out.append({'id': False, 'name': _('Sin lote / General'), 'qty_available': qty})
                     
                     total_qty += qty
 
-            # Ordenamos: Los que tienen nombre primero, 'Sin lote' al final si quieres, o alfabético
             out.sort(key=lambda x: x['name'] or 'ZZZZ')
 
             self._toast(
@@ -235,7 +228,6 @@ class AqSimplifiedMrpApi(models.TransientModel):
             bom_id = payload.get('bom_id')
             components_map = payload.get('components') or []
 
-            # Normaliza componentes > 0
             comps_clean = []
             for c in components_map:
                 if not c:
@@ -282,7 +274,7 @@ class AqSimplifiedMrpApi(models.TransientModel):
             self._logdbg("MO creado", mo.id, mo.name)
 
             mo.action_confirm()
-            mo.user_id = self.env.uid  # Asignar al usuario actual
+            mo.user_id = self.env.uid
             self._logdbg("MO confirmado", "moves:", len(mo.move_raw_ids))
 
             existing_by_pid = {m.product_id.id: m for m in mo.move_raw_ids}
@@ -387,29 +379,37 @@ class AqSimplifiedMrpApi(models.TransientModel):
 
             # 3. Completar automáticamente
             try:
-                for move in mo.move_raw_ids:
-                    if move.state not in ['done', 'cancel']:
-                        move._action_done()
-                        self._logdbg("Move raw validado", move.id, move.product_id.display_name)
-                
-                for move in mo.move_finished_ids:
-                    if move.state not in ['done', 'cancel']:
-                        move._action_done()
-                        self._logdbg("Move finished validado", move.id, move.product_id.display_name)
-
-                if mo.state != 'done':
-                    mo.action_done()
-                    self._logdbg("MO marcada como hecha", mo.state)
+                mo.button_mark_done()
+                self._logdbg("MO marcada como hecha con button_mark_done()", mo.state)
 
             except Exception as complete_error:
-                self._logdbg("Error completando MO", complete_error)
-                _logger.warning("Could not complete production automatically: %s", complete_error)
+                self._logdbg("Error completando MO con button_mark_done", complete_error)
+                _logger.warning("Could not complete production with button_mark_done: %s", complete_error)
+                
                 try:
-                    if mo.state == 'confirmed':
-                        mo.action_toggle_is_locked()
-                        self._logdbg("MO al menos iniciada", mo.state)
-                except Exception:
-                    pass
+                    for move in mo.move_raw_ids:
+                        if move.state not in ['done', 'cancel']:
+                            move._action_done()
+                            self._logdbg("Move raw validado", move.id, move.product_id.display_name)
+                    
+                    for move in mo.move_finished_ids:
+                        if move.state not in ['done', 'cancel']:
+                            move._action_done()
+                            self._logdbg("Move finished validado", move.id, move.product_id.display_name)
+
+                    if mo.state != 'done':
+                        mo.action_done()
+                        self._logdbg("MO marcada como hecha con action_done()", mo.state)
+
+                except Exception as fallback_error:
+                    self._logdbg("Error en fallback", fallback_error)
+                    _logger.warning("Could not complete production with fallback method: %s", fallback_error)
+                    try:
+                        if mo.state == 'confirmed':
+                            mo.action_toggle_is_locked()
+                            self._logdbg("MO al menos iniciada", mo.state)
+                    except Exception:
+                        pass
 
             self._toast(_("MO creada y completada: %(n)s | Estado: %(s)s | Líneas: %(c)d",
                           n=mo.name, s=mo.state, c=len(mo.move_raw_ids)), level='success')
@@ -458,7 +458,6 @@ class AqSimplifiedMrpApi(models.TransientModel):
             if not mo.exists():
                 raise UserError(_('Orden no encontrada'))
             
-            # Solo el creador puede verla
             if mo.user_id.id != self.env.uid:
                 raise UserError(_('No tienes permiso para ver esta orden'))
             
