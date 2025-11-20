@@ -1,6 +1,6 @@
 <templates id="template" xml:space="preserve">
   <t t-name="aq_simplified_mrp.Main">
-    <div class="o_smrp o_smrp--tablet">
+    <div class="o_smrp">
 
       <!-- Nav superior -->
       <div class="o_smrp_nav">
@@ -37,7 +37,8 @@
         <t t-if="state.step === 'warehouse'">
           <div class="o_smrp_container o_smrp_section">
             <h2>Selecciona almacén</h2>
-            <div class="o_smrp_cards o_smrp_cards--center">
+            <!-- CORREGIDO: Usar la clase específica para almacenes en horizontal -->
+            <div class="o_smrp_cards o_smrp_cards--warehouses">
               <t t-foreach="state.warehouses" t-as="w" t-key="w.id">
                 <div class="o_smrp_card selectable" t-on-click="() => this.selectWarehouse(w.id)">
                   <div class="o_smrp_card_icon">🏬</div>
@@ -111,6 +112,7 @@
             <t t-if="!state.components.length">
               <div class="o_smrp_empty">No hay lista de materiales. Agrega ingredientes antes de continuar.</div>
             </t>
+            <!-- Sección para agregar ingredientes -->
             <div class="o_smrp_box">
               <div class="o_smrp_name">Agregar ingrediente</div>
               <div class="o_smrp_row">
@@ -119,6 +121,7 @@
                 <input class="o_smrp_input o_smrp_input--xl" type="number" min="0" step="0.0001"
                        t-model="state.newCompQty" placeholder="Cantidad"/>
               </div>
+              <!-- Resultados de búsqueda con scroll natural -->
               <div class="o_smrp_cards o_smrp_cards--center">
                 <t t-foreach="state.compSearchResults" t-as="p" t-key="p.id">
                   <div class="o_smrp_card selectable" t-on-click="() => this.addComponentFromSearch(p)">
@@ -146,6 +149,7 @@
                 <div class="o_smrp_box o_smrp_box--big">
                   <div class="o_smrp_name"><t t-esc="c.name"/></div>
                   <div class="o_smrp_meta">Requerido: <strong><t t-esc="c.qty_required"/></strong> <t t-esc="c.uom_name"/></div>
+                  <!-- Grid de lotes con scroll natural -->
                   <div class="o_smrp_lots">
                     <t t-foreach="state.lots" t-as="l" t-key="l.id">
                       <div class="o_smrp_lot" t-att-class="{selected: state.chosenLots &amp;&amp; state.chosenLots[c.product_id] === l.id}"
@@ -182,10 +186,11 @@
         </t>
       </t>
 
-      <!-- ========== VISTA LISTA ========== -->
+      <!-- ========== VISTA LISTA - CORREGIDA PARA SCROLL ========== -->
       <t t-if="state.view === 'list'">
         <div class="o_smrp_container o_smrp_section">
           <h2>Mis órdenes de producción</h2>
+          <!-- CORREGIDO: Removido max-height para permitir scroll natural -->
           <div class="o_smrp_list">
             <t t-foreach="state.myProductions" t-as="mo" t-key="mo.id">
               <div class="o_smrp_list_item" t-on-click="() => this.loadMoDetail(mo.id)">
@@ -245,6 +250,7 @@
           </div>
 
           <h2>Ingredientes</h2>
+          <!-- Lista de ingredientes con scroll natural -->
           <div class="o_smrp_list">
             <t t-foreach="state.moDetail.components" t-as="comp" t-key="comp_index">
               <div class="o_smrp_list_item">
