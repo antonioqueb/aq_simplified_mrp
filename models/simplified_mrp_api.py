@@ -374,16 +374,18 @@ class AqSimplifiedMrpApi(models.TransientModel):
                 })
                 self._logdbg("Lote creado para producto terminado", finished_lot.id, finished_lot.name)
             
-            # Verificar si ya existe move_line, si sí actualizarlo, si no crearlo
+            # Verificar si ya existe move_line EN EL MOVE FINISHED, si sí actualizarlo, si no crearlo
             if mo.move_finished_ids:
                 finished_move = mo.move_finished_ids[0]
+                self._logdbg("Move finished encontrado", finished_move.id, finished_move.product_id.display_name)
+                
                 if finished_move.move_line_ids:
                     # Ya existe move_line, actualizarlo
                     for ml in finished_move.move_line_ids:
                         if finished_lot:
                             ml.lot_id = finished_lot.id
                         ml.quantity = qty
-                        self._logdbg("Move line actualizado para producto terminado", ml.id, "lot", finished_lot.id if finished_lot else None)
+                        self._logdbg("Move line FINISHED actualizado", ml.id, "move", finished_move.id, "lot", finished_lot.id if finished_lot else None, "qty", qty)
                 else:
                     # No existe move_line, crearlo
                     finished_move_line = self.env['stock.move.line'].create({
@@ -396,7 +398,7 @@ class AqSimplifiedMrpApi(models.TransientModel):
                         'lot_id': finished_lot.id if finished_lot else False,
                         'quantity': qty,
                     })
-                    self._logdbg("Move line creado para producto terminado", finished_move_line.id, "lot", finished_lot.id if finished_lot else None)
+                    self._logdbg("Move line FINISHED creado", finished_move_line.id, "move", finished_move.id, "lot", finished_lot.id if finished_lot else None, "qty", qty)
 
             # 2. Marcar como iniciado
             try:
