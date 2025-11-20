@@ -14,33 +14,27 @@ class SimplifiedMrp extends Component {
         this.notification = useService('notification');
 
         this.state = useState({
-            view: 'create', // 'create' o 'list' o 'detail'
+            view: 'create',
             step: 'warehouse',
             warehouses: [],
             warehouseId: null,
-
             products: [],
             productQuery: '',
             productId: null,
             productName: '',
             uomName: '',
             qty: 1.0,
-
             bomId: null,
             components: [],
             compIndex: 0,
             editingComponent: false,
-
             compSearchQuery: '',
             compSearchResults: [],
             newCompQty: 1.0,
-
             lots: [],
             chosenLots: {},
-
             resultMoId: null,
             resultMoName: '',
-
             myProductions: [],
             selectedMo: null,
             moDetail: null,
@@ -58,7 +52,56 @@ class SimplifiedMrp extends Component {
         return Number.isFinite(n) ? n : 0;
     }
 
-    // ---------- data ----------
+    getProgressWidth() {
+        const steps = ['warehouse', 'product', 'components', 'lots', 'done'];
+        const index = steps.indexOf(this.state.step);
+        const width = ((index + 1) / steps.length) * 100;
+        return `width: ${width}%`;
+    }
+
+    getCurrentStepTitle() {
+        const titles = {
+            warehouse: 'Paso 1: Seleccionar almacén',
+            product: 'Paso 2: Producto a fabricar',
+            components: 'Paso 3: Ingredientes',
+            lots: 'Paso 4: Seleccionar lotes',
+            done: '¡Completado!'
+        };
+        return titles[this.state.step] || '';
+    }
+
+    // ---------- quantity controls ----------
+    increaseQty() {
+        this.state.qty = this.toNum(this.state.qty) + 1;
+    }
+
+    decreaseQty() {
+        const newQty = this.toNum(this.state.qty) - 1;
+        this.state.qty = newQty > 0 ? newQty : 1;
+    }
+
+    increaseCompQty() {
+        const c = this.state.components[this.state.compIndex];
+        if (c) c.qty_required = this.toNum(c.qty_required) + 1;
+    }
+
+    decreaseCompQty() {
+        const c = this.state.components[this.state.compIndex];
+        if (c) {
+            const newQty = this.toNum(c.qty_required) - 1;
+            c.qty_required = newQty > 0 ? newQty : 0.01;
+        }
+    }
+
+    // ---------- component editing ----------
+    editComponent(index) {
+        this.state.compIndex = index;
+        this.state.editingComponent = true;
+        this.state.compSearchQuery = '';
+        this.state.compSearchResults = [];
+    }
+
+    // ---------- data loading ----------
     async loadWarehouses() {
         try {
             this.state.warehouses = await this.orm.call('aq.simplified.mrp.api', 'get_warehouses', [], {});
@@ -133,7 +176,7 @@ class SimplifiedMrp extends Component {
         }
     }
 
-    // ---------- flow crear ----------
+    // ---------- wizard flow ----------
     selectWarehouse(id) {
         this.state.warehouseId = id;
         this.state.step = 'product';
@@ -143,7 +186,6 @@ class SimplifiedMrp extends Component {
         this.state.productId = p.id;
         this.state.productName = p.name;
         this.state.uomName = p.uom_name || p.uomName || '';
-        this.state.products = [];
     }
 
     async confirmProductAndQty() {
@@ -202,9 +244,6 @@ class SimplifiedMrp extends Component {
             this.state.editingComponent = false;
         } else if (this.state.compIndex > 0) {
             this.state.compIndex -= 1;
-            this.state.editingComponent = true;
-        } else {
-            this.state.editingComponent = true;
         }
     }
 
@@ -228,23 +267,20 @@ class SimplifiedMrp extends Component {
 
     nextComponent() {
         if (!this.state.components.length) {
-            this.notification.add('Debes agregar al menos un ingrediente', { type: 'warning' });
+            this.notification.add('Agrega al menos un ingrediente', { type: 'warning' });
             return;
         }
         
         if (this.state.compIndex < this.state.components.length - 1) {
             this.state.compIndex += 1;
-            this.state.editingComponent = true;
         } else {
             this.state.editingComponent = false;
-            this.state.compIndex = this.state.components.length;
         }
     }
 
     prevComponent() {
         if (this.state.compIndex > 0) {
             this.state.compIndex -= 1;
-            this.state.editingComponent = true;
         }
     }
 
@@ -260,7 +296,7 @@ class SimplifiedMrp extends Component {
     
     continueToLots() {
         if (!this.state.components.length) {
-            this.notification.add('Debes agregar al menos un ingrediente', { type: 'warning' });
+            this.notification.add('Agrega al menos un ingrediente', { type: 'warning' });
             return;
         }
         this.state.compIndex = 0;
@@ -337,7 +373,7 @@ class SimplifiedMrp extends Component {
             this.state.resultMoId = res.mo_id || null;
             this.state.resultMoName = res.name || '';
             this.state.step = 'done';
-            this.notification.add('Orden de producción creada exitosamente', { type: 'success' });
+            this.notification.add('Orden creada exitosamente', { type: 'success' });
             await this.loadMyProductions();
         } catch (e) {
             let errorMessage = 'Error desconocido';
@@ -348,7 +384,7 @@ class SimplifiedMrp extends Component {
             } else if (typeof e === 'string') {
                 errorMessage = e;
             }
-            this.notification.add(`Error creando orden de producción: ${errorMessage}`, { type: 'danger' });
+            this.notification.add(`Error creando orden: ${errorMessage}`, { type: 'danger' });
         }
     }
 
@@ -382,7 +418,7 @@ class SimplifiedMrp extends Component {
         this.state.newCompQty = 1.0;
     }
 
-    // ---------- nav ----------
+    // ---------- navigation ----------
     showCreate() {
         this.resetWizard();
     }
