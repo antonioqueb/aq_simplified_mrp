@@ -273,6 +273,47 @@ class AqSimplifiedMrpApi(models.TransientModel):
             mo = Production.create(mo_vals)
             self._logdbg("MO creado", mo.id, mo.name)
 
+            # ============== CREAR LOTE PERSONALIZADO ANTES DE CONFIRMAR ==============
+            finished_lot = None
+            if product.tracking in ['lot', 'serial']:
+                Lot = self.env['stock.lot']
+                
+                # Generar nombre del lote: FECHA-REF-CONSECUTIVO
+                from datetime import datetime
+                date_str = datetime.now().strftime('%Y%m%d')
+                ref = product.default_code or 'PROD'
+                
+                # Buscar el último consecutivo del día para este producto
+                existing_lots = Lot.search([
+                    ('product_id', '=', product.id),
+                    ('company_id', '=', mo.company_id.id),
+                    ('name', 'like', f"{date_str}-{ref}-%")
+                ], order='name desc', limit=1)
+                
+                if existing_lots:
+                    # Extraer el consecutivo del último lote
+                    last_name = existing_lots[0].name
+                    try:
+                        last_consecutive = int(last_name.split('-')[-1])
+                        consecutive = last_consecutive + 1
+                    except (ValueError, IndexError):
+                        consecutive = 1
+                else:
+                    consecutive = 1
+                
+                lot_name = f"{date_str}-{ref}-{consecutive:03d}"
+                
+                finished_lot = Lot.create({
+                    'name': lot_name,
+                    'product_id': product.id,
+                    'company_id': mo.company_id.id,
+                })
+                self._logdbg("Lote personalizado creado ANTES de confirmar", finished_lot.id, finished_lot.name)
+                
+                # Asignar el lote a la MO ANTES de confirmar
+                mo.lot_producing_id = finished_lot.id
+                self._logdbg("Lote asignado a lot_producing_id", mo.lot_producing_id.name)
+
             mo.action_confirm()
             mo.user_id = self.env.uid
             self._logdbg("MO confirmado", "moves:", len(mo.move_raw_ids))
@@ -337,55 +378,19 @@ class AqSimplifiedMrpApi(models.TransientModel):
 
             # ============== AUTOMATIZACIÓN COMPLETA DE LA MO ==============
             
-            # 1. Crear/actualizar el move line para el producto terminado
-            finished_lot = None
-            if product.tracking in ['lot', 'serial']:
-                Lot = self.env['stock.lot']
-                
-                # Generar nombre del lote: FECHA-REF-CONSECUTIVO
-                from datetime import datetime
-                date_str = datetime.now().strftime('%Y%m%d')
-                ref = product.default_code or 'PROD'
-                
-                # Buscar el último consecutivo del día para este producto
-                existing_lots = Lot.search([
-                    ('product_id', '=', product.id),
-                    ('company_id', '=', mo.company_id.id),
-                    ('name', 'like', f"{date_str}-{ref}-%")
-                ], order='name desc', limit=1)
-                
-                if existing_lots:
-                    # Extraer el consecutivo del último lote
-                    last_name = existing_lots[0].name
-                    try:
-                        last_consecutive = int(last_name.split('-')[-1])
-                        consecutive = last_consecutive + 1
-                    except (ValueError, IndexError):
-                        consecutive = 1
-                else:
-                    consecutive = 1
-                
-                lot_name = f"{date_str}-{ref}-{consecutive:03d}"
-                
-                finished_lot = Lot.create({
-                    'name': lot_name,
-                    'product_id': product.id,
-                    'company_id': mo.company_id.id,
-                })
-                self._logdbg("Lote creado para producto terminado", finished_lot.id, finished_lot.name)
-            
-            # Verificar si ya existe move_line EN EL MOVE FINISHED, si sí actualizarlo, si no crearlo
+            # 1. Verificar/actualizar el move line del producto terminado
             if mo.move_finished_ids:
                 finished_move = mo.move_finished_ids[0]
                 self._logdbg("Move finished encontrado", finished_move.id, finished_move.product_id.display_name)
                 
                 if finished_move.move_line_ids:
-                    # Ya existe move_line, actualizarlo
+                    # Ya existe move_line, verificar que tenga el lote correcto
                     for ml in finished_move.move_line_ids:
-                        if finished_lot:
+                        if finished_lot and ml.lot_id != finished_lot:
                             ml.lot_id = finished_lot.id
+                            self._logdbg("Lote corregido en move_line", ml.id, "nuevo lote", finished_lot.name)
                         ml.quantity = qty
-                        self._logdbg("Move line FINISHED actualizado", ml.id, "move", finished_move.id, "lot", finished_lot.id if finished_lot else None, "qty", qty)
+                        self._logdbg("Move line FINISHED actualizado", ml.id, "move", finished_move.id, "lot", ml.lot_id.name if ml.lot_id else None, "qty", qty)
                 else:
                     # No existe move_line, crearlo
                     finished_move_line = self.env['stock.move.line'].create({
@@ -398,7 +403,7 @@ class AqSimplifiedMrpApi(models.TransientModel):
                         'lot_id': finished_lot.id if finished_lot else False,
                         'quantity': qty,
                     })
-                    self._logdbg("Move line FINISHED creado", finished_move_line.id, "move", finished_move.id, "lot", finished_lot.id if finished_lot else None, "qty", qty)
+                    self._logdbg("Move line FINISHED creado", finished_move_line.id, "move", finished_move.id, "lot", finished_lot.name if finished_lot else None, "qty", qty)
 
             # 2. Marcar como iniciado
             try:
