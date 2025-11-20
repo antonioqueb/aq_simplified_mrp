@@ -4,7 +4,6 @@ import { Component, useState, onWillStart } from '@odoo/owl';
 import { useService } from '@web/core/utils/hooks';
 
 class SimplifiedMrp extends Component {
-    // CORRECCIÓN 1: Definición de props para evitar advertencia en consola
     static props = { 
         "*": true 
     };
@@ -30,6 +29,7 @@ class SimplifiedMrp extends Component {
             bomId: null,
             components: [],
             compIndex: 0,
+            editingComponent: false, // Control de modo edición
 
             compSearchQuery: '',
             compSearchResults: [],
@@ -202,6 +202,7 @@ class SimplifiedMrp extends Component {
                 qty_required: this.toNum(c.qty_required) || 1.0 
             }));
             this.state.compIndex = 0;
+            this.state.editingComponent = false;
             this.state.step = 'components';
         } catch (e) {
             console.error('Error completo obteniendo componentes:', e);
@@ -230,7 +231,16 @@ class SimplifiedMrp extends Component {
     removeCurrentComponent() {
         if (!this.state.components.length) return;
         this.state.components.splice(this.state.compIndex, 1);
-        if (this.state.compIndex > 0) this.state.compIndex -= 1;
+        
+        if (this.state.components.length === 0) {
+            this.state.compIndex = 0;
+            this.state.editingComponent = false;
+        } else if (this.state.compIndex > 0) {
+            this.state.compIndex -= 1;
+            this.state.editingComponent = true;
+        } else {
+            this.state.editingComponent = true;
+        }
     }
 
     addComponentFromSearch(p) {
@@ -241,7 +251,6 @@ class SimplifiedMrp extends Component {
                 uom_id: p.uom_id,
                 uom_name: p.uom_name,
                 qty_required: this.toNum(this.state.newCompQty) || 1.0,
-                // CORRECCIÓN 2: Usar el tracking que viene del backend
                 tracking: p.tracking || 'none',
             });
         }
@@ -249,6 +258,7 @@ class SimplifiedMrp extends Component {
         this.state.compSearchResults = [];
         this.state.newCompQty = 1.0;
         this.state.compIndex = this.state.components.length - 1;
+        this.state.editingComponent = true; // Activar modo edición
     }
 
     nextComponent() {
@@ -256,17 +266,33 @@ class SimplifiedMrp extends Component {
             this.notification.add('Debes agregar al menos un ingrediente', { type: 'warning' });
             return;
         }
+        
         if (this.state.compIndex < this.state.components.length - 1) {
+            // Hay más componentes por revisar
             this.state.compIndex += 1;
+            this.state.editingComponent = true;
         } else {
-            this.state.compIndex = 0;
-            this.state.step = 'lots';
-            this.loadLotsForCurrent();
+            // Terminó de revisar todos - volver a modo búsqueda o continuar a lotes
+            this.state.editingComponent = false;
+            this.state.compIndex = this.state.components.length;
         }
     }
 
     prevComponent() {
-        if (this.state.compIndex > 0) this.state.compIndex -= 1;
+        if (this.state.compIndex > 0) {
+            this.state.compIndex -= 1;
+            this.state.editingComponent = true;
+        }
+    }
+    
+    continueToLots() {
+        if (!this.state.components.length) {
+            this.notification.add('Debes agregar al menos un ingrediente', { type: 'warning' });
+            return;
+        }
+        this.state.compIndex = 0;
+        this.state.step = 'lots';
+        this.loadLotsForCurrent();
     }
 
     async loadLotsForCurrent() {
@@ -322,6 +348,7 @@ class SimplifiedMrp extends Component {
             await this.loadLotsForCurrent();
         } else {
             this.state.step = 'components';
+            this.state.editingComponent = false;
         }
     }
 
@@ -391,6 +418,7 @@ class SimplifiedMrp extends Component {
         this.state.components = [];
         this.state.chosenLots = {};
         this.state.compIndex = 0;
+        this.state.editingComponent = false;
         this.state.qty = 1.0;
         this.state.resultMoId = null;
         this.state.resultMoName = '';
