@@ -67,7 +67,9 @@ class SimplifiedMrp extends Component {
             console.log('Almacenes cargados:', this.state.warehouses);
         } catch (e) {
             console.error('Error completo cargando almacenes:', e);
-            this.notification.add(`Error cargando almacenes: ${e.message || e}`, { type: 'danger' });
+            console.error('Error data:', e.data);
+            console.error('Error message:', e.message);
+            this.notification.add(`Error cargando almacenes: ${e.data?.message || e.message || e}`, { type: 'danger' });
         }
     }
 
@@ -77,7 +79,7 @@ class SimplifiedMrp extends Component {
             console.log('Mis órdenes cargadas:', this.state.myProductions);
         } catch (e) {
             console.error('Error cargando mis órdenes:', e);
-            this.notification.add(`Error cargando mis órdenes: ${e.message || e}`, { type: 'danger' });
+            this.notification.add(`Error cargando mis órdenes: ${e.data?.message || e.message || e}`, { type: 'danger' });
         }
     }
 
@@ -89,7 +91,7 @@ class SimplifiedMrp extends Component {
             console.log('Detalle cargado:', this.state.moDetail);
         } catch (e) {
             console.error('Error cargando detalle:', e);
-            this.notification.add(`Error cargando detalle: ${e.message || e}`, { type: 'danger' });
+            this.notification.add(`Error cargando detalle: ${e.data?.message || e.message || e}`, { type: 'danger' });
         }
     }
 
@@ -105,8 +107,20 @@ class SimplifiedMrp extends Component {
             );
             console.log('Productos encontrados:', this.state.products);
         } catch (e) {
-            console.error('Error buscando productos:', e);
-            let errorMessage = e.data?.message || e.message || 'Error desconocido';
+            console.error('Error completo buscando productos:', e);
+            console.error('Error data:', e.data);
+            console.error('Error message:', e.message);
+            console.error('Error type:', e.type);
+            
+            let errorMessage = 'Error desconocido';
+            if (e.data && e.data.message) {
+                errorMessage = e.data.message;
+            } else if (e.message) {
+                errorMessage = e.message;
+            } else if (typeof e === 'string') {
+                errorMessage = e;
+            }
+            
             this.notification.add(`Error buscando productos: ${errorMessage}`, { type: 'danger' });
         }
     }
@@ -128,8 +142,19 @@ class SimplifiedMrp extends Component {
             );
             console.log('Componentes encontrados:', this.state.compSearchResults);
         } catch (e) {
-            console.error('Error buscando ingredientes:', e);
-            let errorMessage = e.data?.message || e.message || 'Error desconocido';
+            console.error('Error completo buscando ingredientes:', e);
+            console.error('Error data:', e.data);
+            console.error('Error message:', e.message);
+            
+            let errorMessage = 'Error desconocido';
+            if (e.data && e.data.message) {
+                errorMessage = e.data.message;
+            } else if (e.message) {
+                errorMessage = e.message;
+            } else if (typeof e === 'string') {
+                errorMessage = e;
+            }
+            
             this.notification.add(`Error buscando ingredientes: ${errorMessage}`, { type: 'danger' });
         }
     }
@@ -180,8 +205,19 @@ class SimplifiedMrp extends Component {
             this.state.editingComponent = false;
             this.state.step = 'components';
         } catch (e) {
-            console.error('Error obteniendo componentes:', e);
-            let errorMessage = e.data?.message || e.message || 'Error desconocido';
+            console.error('Error completo obteniendo componentes:', e);
+            console.error('Error data:', e.data);
+            console.error('Error message:', e.message);
+            
+            let errorMessage = 'Error desconocido';
+            if (e.data && e.data.message) {
+                errorMessage = e.data.message;
+            } else if (e.message) {
+                errorMessage = e.message;
+            } else if (typeof e === 'string') {
+                errorMessage = e;
+            }
+            
             this.notification.add(`Error obteniendo componentes: ${errorMessage}`, { type: 'danger' });
         }
     }
@@ -249,7 +285,8 @@ class SimplifiedMrp extends Component {
         }
     }
 
-    // --- NUEVAS FUNCIONES AGREGADAS ---
+    // --- AGREGADO: Funciones faltantes para "Volver" y "Revisar" ---
+    
     backToProduct() {
         this.state.step = 'product';
     }
@@ -262,7 +299,8 @@ class SimplifiedMrp extends Component {
             this.notification.add('No hay ingredientes para revisar', { type: 'warning' });
         }
     }
-    // ----------------------------------
+
+    // -------------------------------------------------------------
     
     continueToLots() {
         if (!this.state.components.length) {
@@ -290,8 +328,19 @@ class SimplifiedMrp extends Component {
             
             console.log('Lotes cargados:', this.state.lots);
         } catch (e) {
-            console.error('Error cargando lotes:', e);
-            let errorMessage = e.data?.message || e.message || 'Error desconocido';
+            console.error('Error completo cargando lotes:', e);
+            console.error('Error data:', e.data);
+            console.error('Error message:', e.message);
+            
+            let errorMessage = 'Error desconocido';
+            if (e.data && e.data.message) {
+                errorMessage = e.data.message;
+            } else if (e.message) {
+                errorMessage = e.message;
+            } else if (typeof e === 'string') {
+                errorMessage = e;
+            }
+            
             this.notification.add(`Error cargando lotes: ${errorMessage}`, { type: 'danger' });
         }
     }
@@ -348,8 +397,19 @@ class SimplifiedMrp extends Component {
             this.notification.add('Orden de producción creada exitosamente', { type: 'success' });
             await this.loadMyProductions();
         } catch (e) {
-            console.error('Error creando MO:', e);
-            let errorMessage = e.data?.message || e.message || 'Error desconocido';
+            console.error('Error completo creando MO:', e);
+            console.error('Error data:', e.data);
+            console.error('Error message:', e.message);
+            
+            let errorMessage = 'Error desconocido';
+            if (e.data && e.data.message) {
+                errorMessage = e.data.message;
+            } else if (e.message) {
+                errorMessage = e.message;
+            } else if (typeof e === 'string') {
+                errorMessage = e;
+            }
+            
             this.notification.add(`Error creando orden de producción: ${errorMessage}`, { type: 'danger' });
         }
     }
