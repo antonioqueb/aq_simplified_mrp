@@ -146,27 +146,37 @@
 }
 
 /* ========================================================================
-   INPUTS
+   INPUTS & FORMS
    ======================================================================== */
 .o_smrp_row {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  align-items: center;
+  gap: 12px;
+  align-items: flex-end; /* Alineación para etiquetas arriba */
   justify-content: center;
 }
 
+.o_smrp_field_group {
+    display: flex; 
+    flex-direction: column; 
+    gap: 4px; 
+    flex: 1; 
+    min-width: 200px;
+}
+
 .o_smrp_label {
-  font-size: var(--smrp-fs-base);
-  min-width: 100px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 700;
+  color: #555;
+  margin-left: 2px;
 }
 
 .o_smrp_input {
   padding: 11px 14px;
   border: 1px solid #d3d8e3;
   border-radius: var(--smrp-radius);
-  min-width: 200px;
+  width: 100%;
+  box-sizing: border-box;
   font-size: var(--smrp-fs-base);
   background: #fff;
   transition: all 0.2s ease;
@@ -181,6 +191,16 @@
     border-color: var(--smrp-brand-blue);
     box-shadow: 0 0 0 3px var(--smrp-brand-blue-3);
   }
+}
+
+/* Selector nativo estilizado */
+select.o_smrp_input {
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23007CB2%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px top 50%;
+    background-size: 10px auto;
+    padding-right: 30px;
 }
 
 /* ========================================================================
@@ -279,12 +299,11 @@
 }
 
 /* ========================================================================
-   CARDS (GRID - Aquí está la clave para que se acomoden solos)
+   CARDS (GRID)
    ======================================================================== */
 .o_smrp_cards {
   display: grid;
   gap: 12px;
-  /* Esto hace que se llenen horizontalmente y bajen a la siguiente fila si no caben */
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   padding: 4px;
   margin-bottom: 16px;
@@ -398,7 +417,7 @@
 }
 
 /* ========================================================================
-   WIZARD Y LISTAS
+   WIZARD, LOTES & PROGRESO
    ======================================================================== */
 .o_smrp_wizard {
   display: grid;
@@ -439,44 +458,122 @@
   strong { font-weight: 600; color: var(--smrp-ink); }
 }
 
+/* Barra de progreso para lotes */
+.o_smrp_header_flex {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.o_smrp_progress_text {
+    font-size: 14px;
+    color: #555;
+    background: #f0f0f0;
+    padding: 4px 8px;
+    border-radius: 6px;
+    strong { color: var(--smrp-brand-blue); }
+}
+
+.o_smrp_progress_bar {
+    height: 10px;
+    background: #e2e8f0;
+    border-radius: 5px;
+    overflow: hidden;
+    margin-bottom: 20px;
+    position: relative;
+}
+
+.o_smrp_progress_fill {
+    height: 100%;
+    background: var(--smrp-brand-green);
+    transition: width 0.3s ease;
+    box-shadow: 0 0 10px rgba(62, 242, 78, 0.5);
+}
+
+/* Grid de Lotes con Input */
 .o_smrp_lots {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
   padding: 4px;
   margin-bottom: 16px;
 }
 
-.o_smrp_lot {
-  padding: 14px;
-  border: 1px solid #d3d8e3;
-  border-radius: var(--smrp-radius);
-  background: #fff;
-  cursor: pointer;
-  position: relative;
-  transition: all 0.2s ease;
+/* Tarjeta de Lote con Input (Sustituye a .o_smrp_lot antigua para este caso) */
+.o_smrp_lot_input_card {
+    border: 1px solid #d3d8e3;
+    border-radius: var(--smrp-radius);
+    padding: 14px;
+    background: #fff;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    box-shadow: var(--smrp-shadow);
 
-  .name {
-    font-size: var(--smrp-fs-lg);
-    font-weight: 600;
-    color: var(--smrp-ink);
-    margin-bottom: 4px;
-  }
-  .qty { font-size: 14px; color: #6b7996; }
-  
-  &:hover {
-    border-color: var(--smrp-brand-blue-2);
-    box-shadow: 0 4px 16px rgba(39, 55, 190, 0.12);
-    transform: translateY(-1px);
-  }
-  &.selected {
-    border-color: var(--smrp-brand-blue);
-    border-width: 2px;
-    background: var(--smrp-brand-blue-3);
-    padding: 13px;
-    .o_smrp_check { display: grid; }
-  }
-  .o_smrp_check { top: -10px; right: -10px; }
+    &.active {
+        border-color: var(--smrp-brand-blue);
+        background: #f0f4ff;
+        box-shadow: 0 0 0 2px var(--smrp-brand-blue-3);
+    }
+
+    .head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        
+        .name { 
+            font-weight: 700; 
+            font-size: 15px; 
+            color: var(--smrp-ink); 
+            word-break: break-all;
+        }
+        
+        .avail { 
+            font-size: 12px; 
+            color: #444; 
+            background: #eef1ff; 
+            padding: 3px 8px; 
+            border-radius: 99px;
+            white-space: nowrap;
+            flex-shrink: 0;
+            margin-left: 8px;
+        }
+    }
+
+    .input-area {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: auto; 
+        
+        label { 
+            font-size: 13px; 
+            font-weight: 600; 
+            color: #666; 
+        }
+    }
+}
+
+.o_smrp_input_small {
+    padding: 6px 10px;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    width: 100%; 
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--smrp-brand-blue);
+    text-align: right;
+    background: #fff;
+    
+    &:focus { 
+        outline: none; 
+        border-color: var(--smrp-brand-blue); 
+        box-shadow: 0 0 0 2px var(--smrp-brand-blue-3);
+    }
 }
 
 .o_smrp_empty {
@@ -493,6 +590,9 @@
   }
 }
 
+/* ========================================================================
+   DONE STATE
+   ======================================================================== */
 .o_smrp_done {
   text-align: center;
   padding: 32px 0;
