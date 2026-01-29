@@ -71,15 +71,23 @@
 
                 <!-- Selectores Adicionales -->
                 <div class="o_smrp_row" style="margin-top:10px;">
+                    <!-- AUTOCOMPLETE DE ORDEN DE VENTA -->
                     <div class="o_smrp_field_group">
-                        <label class="o_smrp_label">Origen (Venta)</label>
-                        <select class="o_smrp_input" t-model="state.selectedSaleOrder">
-                            <option value="">-- Sin origen específico --</option>
-                            <t t-foreach="state.saleOrders" t-as="so" t-key="so.id">
-                                <option t-att-value="so"><t t-esc="so.name"/></option>
-                            </t>
-                        </select>
+                        <label class="o_smrp_label">Origen (Orden de Venta)</label>
+                        <div class="o_smrp_autocomplete">
+                            <input class="o_smrp_input" type="text" placeholder="Escribe OP o Referencia..."
+                                   t-model="state.saleOrderQuery" t-on-input="() => this.searchSaleOrders()"/>
+                            
+                            <div class="o_smrp_autocomplete_list" t-if="state.saleOrderResults.length">
+                                <t t-foreach="state.saleOrderResults" t-as="so" t-key="so.id">
+                                    <div class="item" t-on-click="() => this.selectSaleOrder(so)">
+                                        <t t-esc="so.name"/>
+                                    </div>
+                                </t>
+                            </div>
+                        </div>
                     </div>
+
                     <div class="o_smrp_field_group">
                         <label class="o_smrp_label">Destino (Ubicación)</label>
                         <select class="o_smrp_input" t-model="state.selectedDestLocation">
@@ -296,6 +304,12 @@
                     <strong><t t-esc="state.moDetail.origin || 'N/A'"/></strong>
                 </div>
                 <div class="o_smrp_detail_row">
+                    <span class="o_smrp_detail_label">Estado:</span>
+                    <span class="o_smrp_list_badge" t-att-class="this.getStateClass(state.moDetail.state)">
+                        <t t-esc="this.getStateLabel(state.moDetail.state)"/>
+                    </span>
+                </div>
+                <div class="o_smrp_detail_row">
                     <span class="o_smrp_detail_label">Producto:</span>
                     <strong><t t-esc="state.moDetail.product_name"/></strong>
                 </div>
@@ -303,7 +317,10 @@
                     <span class="o_smrp_detail_label">Cantidad:</span>
                     <strong><t t-esc="state.moDetail.product_qty"/></strong> <t t-esc="state.moDetail.uom_name"/>
                 </div>
-                <!-- ... resto del detalle ... -->
+                <div class="o_smrp_detail_row" t-if="state.moDetail.finished_lot">
+                  <span class="o_smrp_detail_label">Lote Final:</span>
+                  <t t-esc="state.moDetail.finished_lot"/>
+                </div>
             </div>
              <h2>Ingredientes Utilizados</h2>
             <div class="o_smrp_list">
