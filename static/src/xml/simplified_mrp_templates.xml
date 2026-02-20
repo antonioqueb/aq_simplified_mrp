@@ -207,11 +207,18 @@
                             Asignado: <strong><t t-esc="assigned.toFixed(2)"/></strong> / <t t-esc="c.qty_required"/> <t t-esc="c.uom_name"/>
                         </div>
                     </div>
+
                     <!-- Barra de progreso -->
                     <div class="o_smrp_progress_bar">
                         <t t-set="assigned" t-value="this.getAssignedTotal(c.product_id)"/>
                         <div class="o_smrp_progress_fill" 
                              t-att-style="'width:' + Math.min((assigned / (c.qty_required || 1))*100, 100) + '%'"></div>
+                    </div>
+
+                    <!-- Buscador de lotes -->
+                    <div class="o_smrp_lot_search">
+                        <input class="o_smrp_input" type="text" placeholder="🔍 Buscar lote por número..."
+                               t-model="state.lotQuery" t-on-input="() => this.searchLots()"/>
                     </div>
 
                     <div class="o_smrp_lots">
@@ -232,7 +239,10 @@
                         </div>
                       </t>
                       <t t-if="!state.lots.length">
-                        <div class="o_smrp_empty o_smrp_empty--block">Sin lotes disponibles.</div>
+                        <div class="o_smrp_empty o_smrp_empty--block">
+                          <t t-if="state.lotQuery">No se encontraron lotes con "<t t-esc="state.lotQuery"/>".</t>
+                          <t t-else="">Sin lotes disponibles.</t>
+                        </div>
                       </t>
                     </div>
                   </div>
@@ -268,7 +278,7 @@
           </t>
         </t>
 
-        <!-- ========== VISTA LISTA / DETALLE (Sin cambios mayores, solo mostrar origen) ========== -->
+        <!-- ========== VISTA LISTA ========== -->
         <t t-if="state.view === 'list'">
           <div class="o_smrp_container o_smrp_section">
             <h2>Mis órdenes</h2>
@@ -292,6 +302,7 @@
           </div>
         </t>
 
+        <!-- ========== VISTA DETALLE ========== -->
         <t t-if="state.view === 'detail' &amp;&amp; state.moDetail">
           <div class="o_smrp_container o_smrp_section">
             <div class="o_smrp_actions o_smrp_actions--center">

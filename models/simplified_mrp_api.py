@@ -173,12 +173,14 @@ class AqSimplifiedMrpApi(models.TransientModel):
             raise UserError(_('Error obteniendo componentes BOM: %s') % e)
 
     @api.model
-    def get_lots(self, product_id, warehouse_id, limit=60):
-        """Disponibilidad por lote bajo TODAS las ubicaciones internas del almacén."""
+    def get_lots(self, product_id, warehouse_id, limit=60, query=''):
+        """Disponibilidad por lote bajo TODAS las ubicaciones internas del almacén.
+        Soporta filtrado por número de lote via 'query'.
+        """
         try:
             product = self.env['product.product'].browse(int(product_id))
             wh = self.env['stock.warehouse'].browse(int(warehouse_id))
-            
+
             if not product.exists() or not wh.exists():
                 return []
 
@@ -187,42 +189,54 @@ class AqSimplifiedMrpApi(models.TransientModel):
                 return []
 
             Quant = self.env['stock.quant'].sudo()
-            
+
             internal_locs = self.env['stock.location'].search([
                 ('location_id', 'child_of', view_loc.id),
                 ('usage', '=', 'internal')
             ])
-            
+
             domain = [
                 ('product_id', '=', product.id),
                 ('location_id', 'in', internal_locs.ids),
                 ('quantity', '>', 0),
             ]
-            
-            groups = Quant.read_group(
-                domain,
-                ['quantity:sum', 'reserved_quantity:sum'],
-                ['lot_id'],
-                limit=int(limit),
-                lazy=True
-            )
-            
+
+            # Filtrar por número de lote si se proporciona query
+            if query and query.strip():
+                matching_lots = self.env['stock.lot'].search([
+                    ('product_id', '=', product.id),
+                    ('name', 'ilike', query.strip()),
+                ])
+                domain.append(('lot_id', 'in', matching_lots.ids))
+
+            # Leer quants individuales — evita el límite del read_group que cortaba resultados
+            quants = Quant.search(domain, limit=int(limit) * 10)
+
+            lot_totals = {}
+            for q in quants:
+                lot_key = q.lot_id.id if q.lot_id else False
+                if lot_key not in lot_totals:
+                    lot_totals[lot_key] = {
+                        'id': lot_key or -1,
+                        'name': q.lot_id.name if q.lot_id else _('Sin lote / General'),
+                        'qty': 0.0,
+                        'reserved': 0.0,
+                    }
+                lot_totals[lot_key]['qty'] += q.quantity
+                lot_totals[lot_key]['reserved'] += q.reserved_quantity
+
             out = []
-            for g in groups:
-                lot_data = g.get('lot_id')
-                lot_id = lot_data[0] if lot_data else False
-                
-                qsum = self._grp_sum(g, 'quantity')
-                rsum = self._grp_sum(g, 'reserved_quantity')
-                qty = (qsum or 0.0) - (rsum or 0.0)
-                
-                if qty > 0:
-                    name = lot_data[1] if lot_data else _('Sin lote / General')
-                    # Usamos -1 para identificar 'Sin lote' en el frontend si es necesario
-                    out.append({'id': lot_id or -1, 'name': name, 'qty_available': qty})
+            for data in lot_totals.values():
+                available = data['qty'] - data['reserved']
+                if available > 0:
+                    out.append({
+                        'id': data['id'],
+                        'name': data['name'],
+                        'qty_available': round(available, 4),
+                    })
 
             out.sort(key=lambda x: x['name'] or 'ZZZZ')
-            return out
+            return out[:int(limit)]
 
         except Exception as e:
             _logger.error("Error getting lots: %s", e, exc_info=True)

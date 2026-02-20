@@ -30,7 +30,6 @@ class SimplifiedMrp extends Component {
             qty: 1.0,
 
             // Nuevos campos Step 2 (Origen y Destino)
-            // Sale Order ahora es búsqueda
             saleOrderQuery: '',
             saleOrderResults: [],
             selectedSaleOrder: null, // Objeto {id, name}
@@ -42,7 +41,7 @@ class SimplifiedMrp extends Component {
             bomId: null,
             components: [],
             compIndex: 0,
-            editingComponent: false, // Control de modo edición
+            editingComponent: false,
 
             compSearchQuery: '',
             compSearchResults: [],
@@ -50,6 +49,7 @@ class SimplifiedMrp extends Component {
 
             // Step 4: Lots (Multi-selección)
             lots: [],
+            lotQuery: '', // Búsqueda de lotes
             // Estructura: { [productId]: { [lotId]: qty, ... } }
             assignedLots: {}, 
 
@@ -84,12 +84,9 @@ class SimplifiedMrp extends Component {
         }
     }
 
-    // NOTA: Ya no cargamos todas las SO al inicio, se buscan por demanda.
-
     async loadDestLocations() {
         if (!this.state.warehouseId) return;
         try {
-            // Cargar ubicaciones internas del almacén seleccionado
             this.state.destLocations = await this.orm.call('aq.simplified.mrp.api', 'get_stock_locations', [this.state.warehouseId], {});
         } catch (e) {
             console.error('Error cargando ubicaciones:', e);
@@ -149,7 +146,6 @@ class SimplifiedMrp extends Component {
     async selectWarehouse(id) {
         this.state.warehouseId = id;
         this.state.step = 'product';
-        // Cargar datos dependientes
         await this.loadDestLocations();
     }
 
@@ -161,7 +157,6 @@ class SimplifiedMrp extends Component {
         this.state.products = [];
     }
 
-    // --- Lógica de Búsqueda de Orden de Venta ---
     async searchSaleOrders() {
         const query = this.state.saleOrderQuery;
         if (!query || query.length < 2) {
@@ -182,10 +177,9 @@ class SimplifiedMrp extends Component {
 
     selectSaleOrder(so) {
         this.state.selectedSaleOrder = so;
-        this.state.saleOrderQuery = so.name; // Poner nombre en el input
-        this.state.saleOrderResults = []; // Ocultar lista
+        this.state.saleOrderQuery = so.name;
+        this.state.saleOrderResults = [];
     }
-    // ---------------------------------------------
 
     async confirmProductAndConfig() {
         if (!this.state.productId) {
@@ -213,7 +207,6 @@ class SimplifiedMrp extends Component {
                 qty_required: this.toNum(c.qty_required) || 1.0 
             }));
             
-            // Reiniciar asignaciones de lotes
             this.state.assignedLots = {};
             
             this.state.compIndex = 0;
@@ -313,12 +306,15 @@ class SimplifiedMrp extends Component {
     async loadLotsForCurrent() {
         const comp = this.state.components[this.state.compIndex];
         if (!comp) return;
-        
+
+        // Reset búsqueda al cambiar de ingrediente
+        this.state.lotQuery = '';
+
         try {
             this.state.lots = await this.orm.call(
                 'aq.simplified.mrp.api', 
                 'get_lots', 
-                [comp.product_id, this.state.warehouseId, 60], 
+                [comp.product_id, this.state.warehouseId, 60, ''], 
                 {}
             );
             
@@ -327,6 +323,21 @@ class SimplifiedMrp extends Component {
             }
         } catch (e) {
             this.notifyError('Error cargando lotes', e);
+        }
+    }
+
+    async searchLots() {
+        const comp = this.state.components[this.state.compIndex];
+        if (!comp) return;
+        try {
+            this.state.lots = await this.orm.call(
+                'aq.simplified.mrp.api',
+                'get_lots',
+                [comp.product_id, this.state.warehouseId, 60, this.state.lotQuery || ''],
+                {}
+            );
+        } catch (e) {
+            this.notifyError('Error buscando lotes', e);
         }
     }
 
@@ -387,7 +398,6 @@ class SimplifiedMrp extends Component {
     // ---------- Final: Crear MO ----------
     async createMO() {
         try {
-            // Preparar componentes
             const compsPayload = this.state.components.map(c => {
                 const lotsMap = this.state.assignedLots[c.product_id] || {};
                 const lotsList = Object.entries(lotsMap).map(([lid, qty]) => ({
@@ -402,8 +412,6 @@ class SimplifiedMrp extends Component {
                 };
             });
             
-            // Determinar origen correctamente
-            // Prioridad: Objeto seleccionado > Texto escrito manualmente > null
             let originVal = null;
             if (this.state.selectedSaleOrder && this.state.selectedSaleOrder.name) {
                 originVal = this.state.selectedSaleOrder.name;
@@ -416,7 +424,7 @@ class SimplifiedMrp extends Component {
                 product_id: this.state.productId,
                 product_qty: this.toNum(this.state.qty),
                 bom_id: this.state.bomId,
-                origin: originVal, // Aquí enviamos el string correcto
+                origin: originVal,
                 location_dest_id: this.state.selectedDestLocation ? this.state.selectedDestLocation.id : null,
                 components: compsPayload,
             };
@@ -455,7 +463,6 @@ class SimplifiedMrp extends Component {
         this.state.productName = '';
         this.state.qty = 1.0;
         
-        // Reset SO search
         this.state.saleOrderQuery = '';
         this.state.saleOrderResults = [];
         this.state.selectedSaleOrder = null;
@@ -468,6 +475,8 @@ class SimplifiedMrp extends Component {
         
         this.state.compIndex = 0;
         this.state.editingComponent = false;
+        
+        this.state.lotQuery = '';
         
         this.state.resultMoId = null;
         this.state.resultMoName = '';
