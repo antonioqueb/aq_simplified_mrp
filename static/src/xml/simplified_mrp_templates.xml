@@ -2,34 +2,37 @@
   <t t-name="aq_simplified_mrp.Main">
     <div class="o_smrp o_smrp--tablet">
 
-      <!-- Nav superior -->
       <div class="o_smrp_nav">
         <button class="o_smrp_nav_btn" t-att-class="{'active': state.view === 'create'}" t-on-click="() => this.showCreate()">➕ Nueva orden</button>
         <button class="o_smrp_nav_btn" t-att-class="{'active': state.view === 'list' || state.view === 'detail'}" t-on-click="() => this.showList()">📋 Mis órdenes</button>
       </div>
 
-      <!-- WRAPPER PRINCIPAL -->
       <div class="o_smrp_wrapper">
 
-        <!-- ========== VISTA CREAR ========== -->
         <t t-if="state.view === 'create'">
+
           <!-- Steps Header -->
           <div class="o_smrp_container">
             <ol class="o_smrp_steps" role="list">
-              <li t-att-class="{'active': state.step === 'warehouse', 'done': ['product','components','lots','done'].includes(state.step)}">
+              <li t-att-class="{'active': state.step === 'warehouse', 'done': state.step !== 'warehouse'}">
                 <span class="num">1</span><span>Almacén</span>
               </li>
-              <li t-att-class="{'active': state.step === 'product', 'done': ['components','lots','done'].includes(state.step)}">
+              <li t-att-class="{'active': state.step === 'product', 'done': ['lot_config','components','lots','done'].includes(state.step)}">
                 <span class="num">2</span><span>Configuración</span>
               </li>
+              <t t-if="!state.autoLot">
+                <li t-att-class="{'active': state.step === 'lot_config', 'done': ['components','lots','done'].includes(state.step)}">
+                  <span class="num">3</span><span>Lote</span>
+                </li>
+              </t>
               <li t-att-class="{'active': state.step === 'components', 'done': ['lots','done'].includes(state.step)}">
-                <span class="num">3</span><span>Ingredientes</span>
+                <span class="num" t-esc="state.autoLot ? 3 : 4"/><span>Ingredientes</span>
               </li>
-              <li t-att-class="{'active': state.step === 'lots', 'done': ['done'].includes(state.step)}">
-                <span class="num">4</span><span>Lotes</span>
+              <li t-att-class="{'active': state.step === 'lots', 'done': state.step === 'done'}">
+                <span class="num" t-esc="state.autoLot ? 4 : 5"/><span>Lotes</span>
               </li>
               <li t-att-class="{'active': state.step === 'done'}">
-                <span class="num">5</span><span>Listo</span>
+                <span class="num" t-esc="state.autoLot ? 5 : 6"/><span>Listo</span>
               </li>
             </ol>
           </div>
@@ -55,7 +58,6 @@
             <div class="o_smrp_container o_smrp_section">
               <h2>Producto y Origen</h2>
               <div class="o_smrp_box">
-                <!-- Buscador Producto -->
                 <div class="o_smrp_row">
                   <div class="o_smrp_field_group">
                     <label class="o_smrp_label">Producto a fabricar</label>
@@ -63,50 +65,40 @@
                            t-model="state.productQuery" t-on-input="() => this.searchProducts()"/>
                   </div>
                   <div class="o_smrp_field_group">
-                     <label class="o_smrp_label">Cantidad</label>
-                     <input class="o_smrp_input o_smrp_input--xl" type="number" min="0" step="0.01"
-                            t-model="state.qty" placeholder="1.0"/>
+                    <label class="o_smrp_label">Cantidad</label>
+                    <input class="o_smrp_input o_smrp_input--xl" type="number" min="0" step="0.01"
+                           t-model="state.qty" placeholder="1.0"/>
                   </div>
                 </div>
-
-                <!-- Selectores Adicionales -->
                 <div class="o_smrp_row" style="margin-top:10px;">
-                    <!-- AUTOCOMPLETE DE ORDEN DE VENTA -->
-                    <div class="o_smrp_field_group">
-                        <label class="o_smrp_label">Origen (Orden de Venta)</label>
-                        <div class="o_smrp_autocomplete">
-                            <input class="o_smrp_input" type="text" placeholder="Escribe OP o Referencia..."
-                                   t-model="state.saleOrderQuery" t-on-input="() => this.searchSaleOrders()"/>
-                            
-                            <div class="o_smrp_autocomplete_list" t-if="state.saleOrderResults.length">
-                                <t t-foreach="state.saleOrderResults" t-as="so" t-key="so.id">
-                                    <div class="item" t-on-click="() => this.selectSaleOrder(so)">
-                                        <t t-esc="so.name"/>
-                                    </div>
-                                </t>
-                            </div>
-                        </div>
+                  <div class="o_smrp_field_group">
+                    <label class="o_smrp_label">Origen (Orden de Venta)</label>
+                    <div class="o_smrp_autocomplete">
+                      <input class="o_smrp_input" type="text" placeholder="Escribe OP o Referencia..."
+                             t-model="state.saleOrderQuery" t-on-input="() => this.searchSaleOrders()"/>
+                      <div class="o_smrp_autocomplete_list" t-if="state.saleOrderResults.length">
+                        <t t-foreach="state.saleOrderResults" t-as="so" t-key="so.id">
+                          <div class="item" t-on-click="() => this.selectSaleOrder(so)"><t t-esc="so.name"/></div>
+                        </t>
+                      </div>
                     </div>
-
-                    <div class="o_smrp_field_group">
-                        <label class="o_smrp_label">Destino (Ubicación)</label>
-                        <select class="o_smrp_input" t-model="state.selectedDestLocation">
-                            <option value="">-- Por defecto (Stock) --</option>
-                            <t t-foreach="state.destLocations" t-as="loc" t-key="loc.id">
-                                <option t-att-value="loc"><t t-esc="loc.name"/></option>
-                            </t>
-                        </select>
-                    </div>
+                  </div>
+                  <div class="o_smrp_field_group">
+                    <label class="o_smrp_label">Destino (Ubicación)</label>
+                    <select class="o_smrp_input" t-model="state.selectedDestLocation">
+                      <option value="">-- Por defecto (Stock) --</option>
+                      <t t-foreach="state.destLocations" t-as="loc" t-key="loc.id">
+                        <option t-att-value="loc"><t t-esc="loc.name"/></option>
+                      </t>
+                    </select>
+                  </div>
                 </div>
-
                 <div class="o_smrp_actions o_smrp_actions--end">
-                   <button class="o_smrp_btn confirm o_smrp_btn--xl"
+                  <button class="o_smrp_btn confirm o_smrp_btn--xl"
                           t-att-disabled="!(state.productId &amp;&amp; this.toNum(state.qty) > 0)"
-                          t-on-click="() => this.confirmProductAndConfig()">Siguiente</button>
+                          t-on-click="() => this.confirmProductAndConfig()">Siguiente →</button>
                 </div>
               </div>
-
-              <!-- Lista Resultados Productos -->
               <div class="o_smrp_cards o_smrp_cards--center" style="margin-top:16px;">
                 <t t-foreach="state.products" t-as="p" t-key="p.id">
                   <div class="o_smrp_card selectable" t-att-class="{'selected': state.productId === p.id}"
@@ -118,7 +110,6 @@
                   </div>
                 </t>
               </div>
-
               <div class="o_smrp_selected" t-if="state.productName">
                 <span class="badge">Seleccionado</span>
                 <strong><t t-esc="state.productName"/></strong>
@@ -127,12 +118,179 @@
             </div>
           </t>
 
-          <!-- PASO 3: INGREDIENTES -->
+          <!-- ================================================================
+               PASO LOT_CONFIG — Captura manual XX-##-##-##-##
+               ================================================================ -->
+          <t t-if="state.step === 'lot_config'">
+            <div class="o_smrp_container o_smrp_section">
+              <h2>Número de Lote</h2>
+
+              <div class="o_smrp_lot_config_card">
+
+                <!-- Cabecera -->
+                <div class="o_smrp_lot_config_header">
+                  <div class="o_smrp_lot_config_icon">🏷️</div>
+                  <div>
+                    <div class="o_smrp_lot_config_title">Asigna el lote del producto terminado</div>
+                    <div class="o_smrp_lot_config_subtitle">
+                      Producto: <strong><t t-esc="state.productName"/></strong>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Referencia de formato -->
+                <div class="o_smrp_lot_pattern_ref">
+                  <span class="ref-label">Formato requerido:</span>
+                  <div class="ref-chips">
+                    <span class="chip chip--text" title="2 letras mayúsculas">XX</span>
+                    <span class="ref-dash">–</span>
+                    <span class="chip chip--num" title="2 dígitos">##</span>
+                    <span class="ref-dash">–</span>
+                    <span class="chip chip--num" title="2 dígitos">##</span>
+                    <span class="ref-dash">–</span>
+                    <span class="chip chip--num" title="2 dígitos">##</span>
+                    <span class="ref-dash">–</span>
+                    <span class="chip chip--num" title="2 dígitos">##</span>
+                  </div>
+                  <div class="ref-example">Ejemplo: <strong>AB-01-02-03-04</strong></div>
+                </div>
+
+                <!-- Builder segmentado -->
+                <div class="o_smrp_lot_builder">
+
+                  <!-- SEG 1: Letras -->
+                  <div class="o_smrp_lot_seg" t-att-class="{'error': state.lotSegErrors.s1, 'filled': state.lotSeg1.length === 2}">
+                    <div class="seg-badge seg-badge--text">ABC</div>
+                    <div class="seg-label">Letras</div>
+                    <input
+                      class="seg-input seg-input--text"
+                      type="text" maxlength="2" placeholder="AB"
+                      data-seg="1"
+                      t-att-value="state.lotSeg1"
+                      t-on-input="(ev) => this.onSeg1Change(ev)"
+                      autocomplete="off" spellcheck="false" autocorrect="off"
+                    />
+                    <div class="seg-footer">
+                      <span t-if="!state.lotSegErrors.s1" class="seg-hint">2 letras</span>
+                      <span t-if="state.lotSegErrors.s1" class="seg-error">⚠ 2 letras</span>
+                    </div>
+                  </div>
+
+                  <div class="o_smrp_lot_dash">—</div>
+
+                  <!-- SEG 2 -->
+                  <div class="o_smrp_lot_seg" t-att-class="{'error': state.lotSegErrors.s2, 'filled': state.lotSeg2.length > 0}">
+                    <div class="seg-badge seg-badge--num">123</div>
+                    <div class="seg-label">Número</div>
+                    <input
+                      class="seg-input seg-input--num"
+                      type="text" inputmode="numeric" maxlength="2" placeholder="01"
+                      data-seg="2"
+                      t-att-value="state.lotSeg2"
+                      t-on-input="(ev) => this.onSeg2Change(ev)"
+                      autocomplete="off"
+                    />
+                    <div class="seg-footer">
+                      <span t-if="!state.lotSegErrors.s2" class="seg-hint">2 dígitos</span>
+                      <span t-if="state.lotSegErrors.s2" class="seg-error">⚠ 2 dígitos</span>
+                    </div>
+                  </div>
+
+                  <div class="o_smrp_lot_dash">—</div>
+
+                  <!-- SEG 3 -->
+                  <div class="o_smrp_lot_seg" t-att-class="{'error': state.lotSegErrors.s3, 'filled': state.lotSeg3.length > 0}">
+                    <div class="seg-badge seg-badge--num">123</div>
+                    <div class="seg-label">Número</div>
+                    <input
+                      class="seg-input seg-input--num"
+                      type="text" inputmode="numeric" maxlength="2" placeholder="01"
+                      data-seg="3"
+                      t-att-value="state.lotSeg3"
+                      t-on-input="(ev) => this.onSeg3Change(ev)"
+                      autocomplete="off"
+                    />
+                    <div class="seg-footer">
+                      <span t-if="!state.lotSegErrors.s3" class="seg-hint">2 dígitos</span>
+                      <span t-if="state.lotSegErrors.s3" class="seg-error">⚠ 2 dígitos</span>
+                    </div>
+                  </div>
+
+                  <div class="o_smrp_lot_dash">—</div>
+
+                  <!-- SEG 4 -->
+                  <div class="o_smrp_lot_seg" t-att-class="{'error': state.lotSegErrors.s4, 'filled': state.lotSeg4.length > 0}">
+                    <div class="seg-badge seg-badge--num">123</div>
+                    <div class="seg-label">Número</div>
+                    <input
+                      class="seg-input seg-input--num"
+                      type="text" inputmode="numeric" maxlength="2" placeholder="01"
+                      data-seg="4"
+                      t-att-value="state.lotSeg4"
+                      t-on-input="(ev) => this.onSeg4Change(ev)"
+                      autocomplete="off"
+                    />
+                    <div class="seg-footer">
+                      <span t-if="!state.lotSegErrors.s4" class="seg-hint">2 dígitos</span>
+                      <span t-if="state.lotSegErrors.s4" class="seg-error">⚠ 2 dígitos</span>
+                    </div>
+                  </div>
+
+                  <div class="o_smrp_lot_dash">—</div>
+
+                  <!-- SEG 5 -->
+                  <div class="o_smrp_lot_seg" t-att-class="{'error': state.lotSegErrors.s5, 'filled': state.lotSeg5.length > 0}">
+                    <div class="seg-badge seg-badge--num">123</div>
+                    <div class="seg-label">Número</div>
+                    <input
+                      class="seg-input seg-input--num"
+                      type="text" inputmode="numeric" maxlength="2" placeholder="01"
+                      data-seg="5"
+                      t-att-value="state.lotSeg5"
+                      t-on-input="(ev) => this.onSeg5Change(ev)"
+                      autocomplete="off"
+                    />
+                    <div class="seg-footer">
+                      <span t-if="!state.lotSegErrors.s5" class="seg-hint">2 dígitos</span>
+                      <span t-if="state.lotSegErrors.s5" class="seg-error">⚠ 2 dígitos</span>
+                    </div>
+                  </div>
+
+                </div><!-- /.o_smrp_lot_builder -->
+
+                <!-- Preview en tiempo real -->
+                <div class="o_smrp_lot_preview">
+                  <span class="preview-label">Vista previa del lote:</span>
+                  <span class="preview-value" t-esc="state.lotPreview || '__-__-__-__-__'"/>
+                </div>
+
+                <!-- Leyenda -->
+                <div class="o_smrp_lot_legend">
+                  <span class="legend-item">
+                    <span class="legend-dot legend-dot--text"/>
+                    Segmento de texto (letras mayúsculas)
+                  </span>
+                  <span class="legend-item">
+                    <span class="legend-dot legend-dot--num"/>
+                    Segmento numérico (dígitos)
+                  </span>
+                </div>
+
+              </div><!-- /.o_smrp_lot_config_card -->
+
+              <div class="o_smrp_actions o_smrp_actions--sticky">
+                <button class="o_smrp_btn o_smrp_btn--ghost o_smrp_btn--xl"
+                        t-on-click="() => this.backFromLotConfig()">← Volver</button>
+                <button class="o_smrp_btn confirm o_smrp_btn--xl"
+                        t-on-click="() => this.confirmManualLot()">✓ Confirmar lote</button>
+              </div>
+            </div>
+          </t>
+
+          <!-- PASO 3/4: INGREDIENTES -->
           <t t-if="state.step === 'components'">
             <div class="o_smrp_container o_smrp_section">
               <h2>Ingredientes</h2>
-              
-              <!-- MODO BÚSQUEDA -->
               <t t-if="!state.editingComponent">
                 <div class="o_smrp_box">
                   <div class="o_smrp_name">Agregar ingrediente</div>
@@ -153,8 +311,6 @@
                   </div>
                 </div>
               </t>
-
-              <!-- MODO EDICIÓN -->
               <t t-if="state.editingComponent &amp;&amp; state.components.length">
                 <div class="o_smrp_wizard">
                   <div class="o_smrp_counter">Ingrediente <t t-esc="state.compIndex + 1"/> de <t t-esc="state.components.length"/></div>
@@ -178,63 +334,51 @@
                   </div>
                 </div>
               </t>
-
-              <!-- ACTIONS BAR -->
               <div class="o_smrp_actions o_smrp_actions--sticky" t-if="state.components.length">
-                 <button class="o_smrp_btn o_smrp_btn--ghost" t-on-click="() => this.backToProduct()">← Volver</button>
-                 <button class="o_smrp_btn o_smrp_btn--ghost" t-on-click="() => this.reviewComponents()">📝 Revisar</button>
-                 <button class="o_smrp_btn confirm o_smrp_btn--xl" t-on-click="() => this.continueToLots()">✓ Ir a Lotes</button>
+                <button class="o_smrp_btn o_smrp_btn--ghost" t-on-click="() => this.backToProduct()">← Volver</button>
+                <button class="o_smrp_btn o_smrp_btn--ghost" t-on-click="() => this.reviewComponents()">📝 Revisar</button>
+                <button class="o_smrp_btn confirm o_smrp_btn--xl" t-on-click="() => this.continueToLots()">✓ Ir a Lotes</button>
               </div>
             </div>
           </t>
 
-          <!-- PASO 4: LOTES MULTI-SELECCION -->
+          <!-- PASO 4/5: LOTES COMPONENTES -->
           <t t-if="state.step === 'lots'">
             <div class="o_smrp_container o_smrp_section">
               <h2>Selección de Lotes</h2>
               <t t-if="state.components.length">
                 <div class="o_smrp_wizard">
                   <t t-set="c" t-value="state.components[state.compIndex]"/>
-                  <div class="o_smrp_counter">
-                      Ingrediente <t t-esc="state.compIndex + 1"/> de <t t-esc="state.components.length"/>
-                  </div>
-                  
+                  <div class="o_smrp_counter">Ingrediente <t t-esc="state.compIndex + 1"/> de <t t-esc="state.components.length"/></div>
                   <div class="o_smrp_box o_smrp_box--big">
                     <div class="o_smrp_header_flex">
-                        <div class="o_smrp_name"><t t-esc="c.name"/></div>
-                        <div class="o_smrp_progress_text">
-                            <t t-set="assigned" t-value="this.getAssignedTotal(c.product_id)"/>
-                            Asignado: <strong><t t-esc="assigned.toFixed(2)"/></strong> / <t t-esc="c.qty_required"/> <t t-esc="c.uom_name"/>
-                        </div>
-                    </div>
-
-                    <!-- Barra de progreso -->
-                    <div class="o_smrp_progress_bar">
+                      <div class="o_smrp_name"><t t-esc="c.name"/></div>
+                      <div class="o_smrp_progress_text">
                         <t t-set="assigned" t-value="this.getAssignedTotal(c.product_id)"/>
-                        <div class="o_smrp_progress_fill" 
-                             t-att-style="'width:' + Math.min((assigned / (c.qty_required || 1))*100, 100) + '%'"></div>
+                        Asignado: <strong><t t-esc="assigned.toFixed(2)"/></strong> / <t t-esc="c.qty_required"/> <t t-esc="c.uom_name"/>
+                      </div>
                     </div>
-
-                    <!-- Buscador de lotes -->
+                    <div class="o_smrp_progress_bar">
+                      <t t-set="assigned" t-value="this.getAssignedTotal(c.product_id)"/>
+                      <div class="o_smrp_progress_fill"
+                           t-att-style="'width:' + Math.min((assigned / (c.qty_required || 1))*100, 100) + '%'"/>
+                    </div>
                     <div class="o_smrp_lot_search">
-                        <input class="o_smrp_input" type="text" placeholder="🔍 Buscar lote por número..."
-                               t-model="state.lotQuery" t-on-input="() => this.searchLots()"/>
+                      <input class="o_smrp_input" type="text" placeholder="🔍 Buscar lote por número..."
+                             t-model="state.lotQuery" t-on-input="() => this.searchLots()"/>
                     </div>
-
                     <div class="o_smrp_lots">
                       <t t-foreach="state.lots" t-as="l" t-key="l.id">
-                        <!-- Tarjeta con Input -->
                         <div class="o_smrp_lot_input_card" t-att-class="{'active': this.getLotAssignedValue(c.product_id, l.id) > 0}">
                           <div class="head">
-                             <div class="name"><t t-esc="l.name"/></div>
-                             <div class="avail">Disp: <t t-esc="l.qty_available"/></div>
+                            <div class="name"><t t-esc="l.name"/></div>
+                            <div class="avail">Disp: <t t-esc="l.qty_available"/></div>
                           </div>
                           <div class="input-area">
-                             <label>Usar:</label>
-                             <input type="number" min="0" step="0.001" 
-                                    class="o_smrp_input_small"
-                                    t-att-value="this.getLotAssignedValue(c.product_id, l.id)"
-                                    t-on-change="(ev) => this.updateLotAssignment(l.id, ev.target.value)"/>
+                            <label>Usar:</label>
+                            <input type="number" min="0" step="0.001" class="o_smrp_input_small"
+                                   t-att-value="this.getLotAssignedValue(c.product_id, l.id)"
+                                   t-on-change="(ev) => this.updateLotAssignment(l.id, ev.target.value)"/>
                           </div>
                         </div>
                       </t>
@@ -246,14 +390,13 @@
                       </t>
                     </div>
                   </div>
-
                   <div class="o_smrp_actions o_smrp_actions--sticky">
                     <button class="o_smrp_btn o_smrp_btn--ghost o_smrp_btn--xl" t-on-click="() => this.prevLotStep()">
-                      <t t-if="state.compIndex === 0">← Volver a Ingredientes</t>
+                      <t t-if="state.compIndex === 0">← Ingredientes</t>
                       <t t-else="">← Anterior</t>
                     </button>
                     <button class="o_smrp_btn confirm o_smrp_btn--xl" t-on-click="() => this.nextLotStep()">
-                      <t t-if="state.compIndex &lt; state.components.length - 1">Siguiente Ingrediente →</t>
+                      <t t-if="state.compIndex &lt; state.components.length - 1">Siguiente →</t>
                       <t t-else="">✓ Crear Orden</t>
                     </button>
                   </div>
@@ -262,14 +405,14 @@
             </div>
           </t>
 
-          <!-- PASO 5: DONE -->
+          <!-- DONE -->
           <t t-if="state.step === 'done'">
             <div class="o_smrp_container o_smrp_section o_smrp_done">
               <div class="o_smrp_done_icon">🎉</div>
               <h2>¡Orden creada!</h2>
               <div class="o_smrp_box">
-                  <div>Orden: <strong><t t-esc="state.resultMoName"/></strong></div>
-                  <div>La producción ha sido registrada correctamente.</div>
+                <div>Orden: <strong><t t-esc="state.resultMoName"/></strong></div>
+                <div>La producción ha sido registrada correctamente.</div>
               </div>
               <div class="o_smrp_actions o_smrp_actions--center">
                 <button class="o_smrp_btn confirm o_smrp_btn--xl" t-on-click="() => this.resetWizard()">Crear nueva orden</button>
@@ -278,7 +421,7 @@
           </t>
         </t>
 
-        <!-- ========== VISTA LISTA ========== -->
+        <!-- LISTA -->
         <t t-if="state.view === 'list'">
           <div class="o_smrp_container o_smrp_section">
             <h2>Mis órdenes</h2>
@@ -289,7 +432,7 @@
                   <div class="o_smrp_list_content">
                     <div class="o_smrp_list_title"><t t-esc="mo.name"/></div>
                     <div class="o_smrp_list_meta">
-                        <t t-esc="mo.product_name"/> (<t t-esc="mo.product_qty"/> <t t-esc="mo.uom_name"/>)
+                      <t t-esc="mo.product_name"/> (<t t-esc="mo.product_qty"/> <t t-esc="mo.uom_name"/>)
                     </div>
                   </div>
                   <div class="o_smrp_list_badge" t-att-class="this.getStateClass(mo.state)">
@@ -302,7 +445,7 @@
           </div>
         </t>
 
-        <!-- ========== VISTA DETALLE ========== -->
+        <!-- DETALLE -->
         <t t-if="state.view === 'detail' &amp;&amp; state.moDetail">
           <div class="o_smrp_container o_smrp_section">
             <div class="o_smrp_actions o_smrp_actions--center">
@@ -310,30 +453,22 @@
             </div>
             <h2><t t-esc="state.moDetail.name"/></h2>
             <div class="o_smrp_box o_smrp_box--big">
-                <div class="o_smrp_detail_row">
-                    <span class="o_smrp_detail_label">Origen:</span>
-                    <strong><t t-esc="state.moDetail.origin || 'N/A'"/></strong>
-                </div>
-                <div class="o_smrp_detail_row">
-                    <span class="o_smrp_detail_label">Estado:</span>
-                    <span class="o_smrp_list_badge" t-att-class="this.getStateClass(state.moDetail.state)">
-                        <t t-esc="this.getStateLabel(state.moDetail.state)"/>
-                    </span>
-                </div>
-                <div class="o_smrp_detail_row">
-                    <span class="o_smrp_detail_label">Producto:</span>
-                    <strong><t t-esc="state.moDetail.product_name"/></strong>
-                </div>
-                <div class="o_smrp_detail_row">
-                    <span class="o_smrp_detail_label">Cantidad:</span>
-                    <strong><t t-esc="state.moDetail.product_qty"/></strong> <t t-esc="state.moDetail.uom_name"/>
-                </div>
-                <div class="o_smrp_detail_row" t-if="state.moDetail.finished_lot">
-                  <span class="o_smrp_detail_label">Lote Final:</span>
-                  <t t-esc="state.moDetail.finished_lot"/>
-                </div>
+              <div class="o_smrp_detail_row"><span class="o_smrp_detail_label">Origen:</span><strong><t t-esc="state.moDetail.origin || 'N/A'"/></strong></div>
+              <div class="o_smrp_detail_row">
+                <span class="o_smrp_detail_label">Estado:</span>
+                <span class="o_smrp_list_badge" t-att-class="this.getStateClass(state.moDetail.state)"><t t-esc="this.getStateLabel(state.moDetail.state)"/></span>
+              </div>
+              <div class="o_smrp_detail_row"><span class="o_smrp_detail_label">Producto:</span><strong><t t-esc="state.moDetail.product_name"/></strong></div>
+              <div class="o_smrp_detail_row">
+                <span class="o_smrp_detail_label">Cantidad:</span>
+                <strong><t t-esc="state.moDetail.product_qty"/></strong> <t t-esc="state.moDetail.uom_name"/>
+              </div>
+              <div class="o_smrp_detail_row" t-if="state.moDetail.finished_lot">
+                <span class="o_smrp_detail_label">Lote Final:</span>
+                <t t-esc="state.moDetail.finished_lot"/>
+              </div>
             </div>
-             <h2>Ingredientes Utilizados</h2>
+            <h2>Ingredientes Utilizados</h2>
             <div class="o_smrp_list">
               <t t-foreach="state.moDetail.components" t-as="comp" t-key="comp_index">
                 <div class="o_smrp_list_item">

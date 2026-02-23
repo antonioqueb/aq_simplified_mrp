@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <data>
+    <record id="res_config_settings_view_simplified_mrp" model="ir.ui.view">
+      <field name="name">res.config.settings.view.simplified.mrp</field>
+      <field name="model">res.config.settings</field>
+      <field name="inherit_id" ref="mrp.res_config_settings_view_form"/>
+      <field name="arch" type="xml">
+        <xpath expr="//div[hasclass('settings')]" position="before">
+          <app string="Producción Simplificada" name="aq_simplified_mrp" groups="base.group_system">
+            <block title="Lotes de Producto Terminado">
+              <setting
+                string="Generación automática de lotes"
+                help="Activo: el sistema crea el lote al confirmar la orden. Desactivado: el operador captura manualmente los segmentos con el patrón XX-##-##-##-##.">
+                <field name="simplified_mrp_auto_lot"/>
+              </setting>
+            </block>
+          </app>
+        </xpath>
+      </field>
+    </record>
+  </data>
+</odoo>
