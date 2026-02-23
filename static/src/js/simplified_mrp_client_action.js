@@ -18,8 +18,8 @@ class SimplifiedMrp extends Component {
             view: 'create',
             step: 'warehouse',   // warehouse | product | lot_config | components | lots | done
 
-            // Config del backend
-            autoLot: true,
+            // Config del backend — default FALSE: lote manual obligatorio salvo que esté activado en config
+            autoLot: false,
 
             // Step 1
             warehouses:  [],
@@ -131,7 +131,6 @@ class SimplifiedMrp extends Component {
         this.state.lotSeg1 = ev.target.value.replace(/[^A-Za-z]/g, '').toUpperCase().slice(0, 2);
         this.state.lotSegErrors.s1 = false;
         this._computePreview();
-        // Avanzar foco automáticamente al completar
         if (this.state.lotSeg1.length === 2) {
             ev.target.closest('.o_smrp_lot_builder').querySelector('[data-seg="2"]')?.focus();
         }
@@ -174,10 +173,13 @@ class SimplifiedMrp extends Component {
     async loadConfig() {
         try {
             const cfg = await this.orm.call('aq.simplified.mrp.api', 'get_mrp_config', [], {});
-            this.state.autoLot = cfg.auto_lot !== false;
+            // Solo es true si el backend explícitamente devuelve true
+            this.state.autoLot = cfg.auto_lot === true;
+            console.log('[SMRP] autoLot cargado desde backend:', this.state.autoLot);
         } catch (e) {
-            console.warn('No se pudo cargar config MRP, asumiendo autoLot=true', e);
-            this.state.autoLot = true;
+            // Si falla la carga de config, el default seguro es lote MANUAL
+            console.warn('[SMRP] No se pudo cargar config MRP, asumiendo autoLot=false', e);
+            this.state.autoLot = false;
         }
     }
 
@@ -261,6 +263,7 @@ class SimplifiedMrp extends Component {
         this.state.uomName         = p.uom_name || '';
         this.state.productTracking = p.tracking || 'none';
         this.state.products        = [];
+        console.log('[SMRP] Producto seleccionado - tracking:', p.tracking, '| autoLot:', this.state.autoLot);
     }
 
     selectSaleOrder(so) {
@@ -279,9 +282,13 @@ class SimplifiedMrp extends Component {
         }
         this.state.qty = qty;
 
+        // Requiere lote manual si: autoLot está desactivado Y el producto tiene tracking
         const needsManualLot = !this.state.autoLot && this.state.productTracking !== 'none';
+        console.log('[SMRP] confirmProductAndConfig - autoLot:', this.state.autoLot,
+                    '| tracking:', this.state.productTracking,
+                    '| needsManualLot:', needsManualLot);
+
         if (needsManualLot) {
-            // Resetear segmentos y mostrar paso de captura
             this.state.lotSeg1 = '';
             this.state.lotSeg2 = '';
             this.state.lotSeg3 = '';
@@ -305,6 +312,7 @@ class SimplifiedMrp extends Component {
         if (!name) {
             this.notification.add('Lote incompleto', { type: 'warning' }); return;
         }
+        console.log('[SMRP] Lote manual confirmado:', name);
         await this._loadComponents();
     }
 
@@ -487,21 +495,22 @@ class SimplifiedMrp extends Component {
             else if (this.state.saleOrderQuery)
                 originVal = this.state.saleOrderQuery;
 
-            // Lote manual del producto terminado
+            // Lote manual: solo si autoLot está desactivado y el producto tiene tracking
             let manualLotName = null;
             if (!this.state.autoLot && this.state.productTracking !== 'none') {
                 manualLotName = this._assembleLotName();
+                console.log('[SMRP] Enviando lote manual al backend:', manualLotName);
             }
 
             const payload = {
-                warehouse_id:    this.state.warehouseId,
-                product_id:      this.state.productId,
-                product_qty:     this.toNum(this.state.qty),
-                bom_id:          this.state.bomId,
-                origin:          originVal,
+                warehouse_id:     this.state.warehouseId,
+                product_id:       this.state.productId,
+                product_qty:      this.toNum(this.state.qty),
+                bom_id:           this.state.bomId,
+                origin:           originVal,
                 location_dest_id: this.state.selectedDestLocation?.id || null,
-                components:      compsPayload,
-                manual_lot_name: manualLotName,
+                components:       compsPayload,
+                manual_lot_name:  manualLotName,
             };
 
             const res = await this.orm.call('aq.simplified.mrp.api', 'create_mo', [payload], {});
@@ -540,6 +549,7 @@ class SimplifiedMrp extends Component {
             lotQuery: '', resultMoId: null, resultMoName: '',
             compSearchQuery: '', compSearchResults: [], newCompQty: 1.0,
         });
+        // Nota: autoLot NO se resetea — se mantiene el valor cargado desde el backend
     }
 
     // ─── Nav / Misc ───────────────────────────────────────────────────────────

@@ -12,4 +12,5 @@ class ResConfigSettings(models.TransientModel):
             'Desactivado: el operador captura los segmentos del lote manualmente al crear la orden.'
         ),
         config_parameter='aq_simplified_mrp.auto_lot',
+        default=False,
     )

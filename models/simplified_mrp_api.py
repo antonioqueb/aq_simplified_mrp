@@ -37,9 +37,8 @@ class AqSimplifiedMrpApi(models.TransientModel):
     # ---------- Config ----------
     @api.model
     def get_mrp_config(self):
-        """Devuelve la configuración relevante para el front."""
         param = self.env['ir.config_parameter'].sudo()
-        raw = param.get_param('aq_simplified_mrp.auto_lot', default='True')
+        raw = param.get_param('aq_simplified_mrp.auto_lot', default='False')  # ← False por defecto
         auto_lot = str(raw).strip() in ('True', '1', 'true')
         return {'auto_lot': auto_lot}
 
