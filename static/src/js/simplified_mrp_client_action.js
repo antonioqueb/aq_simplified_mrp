@@ -404,7 +404,8 @@ class SimplifiedMrp extends Component {
         try {
             this.state.lots = await this.orm.call(
                 'aq.simplified.mrp.api', 'get_lots',
-                [comp.product_id, this.state.warehouseId, 60, ''], {}
+                [comp.product_id, this.state.warehouseId],
+                { limit: 60, query: '' }
             );
             if (!this.state.assignedLots[comp.product_id])
                 this.state.assignedLots[comp.product_id] = {};
@@ -417,7 +418,8 @@ class SimplifiedMrp extends Component {
         try {
             this.state.lots = await this.orm.call(
                 'aq.simplified.mrp.api', 'get_lots',
-                [comp.product_id, this.state.warehouseId, 60, this.state.lotQuery || ''], {}
+                [comp.product_id, this.state.warehouseId],
+                { limit: 60, query: this.state.lotQuery || '' }
             );
         } catch (e) { this.notifyError('Error buscando lotes', e); }
     }
