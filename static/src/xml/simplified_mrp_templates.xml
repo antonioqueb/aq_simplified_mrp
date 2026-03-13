@@ -260,7 +260,7 @@
                       <input type="number" min="0" step="0.01"
                              class="o_smrp_comp_real_input"
                              t-att-value="comp.qty_real"
-                             t-on-input="(ev) => this.updateRealQty(comp_index, ev)"/>
+                             t-on-change="(ev) => this.updateRealQty(comp_index, ev)"/>
                     </div>
                     <div class="o_smrp_comp_status" t-att-class="'o_smrp_comp_status--' + w.level">
                       <span class="icon"><t t-esc="w.icon"/></span>
