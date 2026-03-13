@@ -1,7 +1,6 @@
-/* static/src/scss/simplified_mrp.scss */
 /* ========================================================================
-   SMRP - Simplified MRP System
-   Versión: Odoo 18 - v1.1 (con captura manual de lote XX-##-##-##-##)
+   SMRP - Simplified MRP System v2.0
+   Poka-Yoke, BOM, Subproductos, Persistencia, Resumen
    ======================================================================== */
 
 :root {
@@ -10,7 +9,6 @@
   --smrp-brand-blue-3: #EEF1FF;
   --smrp-brand-green: #3EF24E;
   --smrp-brand-green-2: #BFFFD0;
-  /* Colores específicos para los segmentos del lote */
   --smrp-lot-text-color: #7C3AED;
   --smrp-lot-text-bg: #F5F0FF;
   --smrp-lot-text-border: #C4B5FD;
@@ -28,11 +26,24 @@
   --smrp-fs-base: 15px;
   --smrp-fs-lg: 17px;
   --smrp-fs-xl: 22px;
-  --smrp-header-height: 56px;
+
+  /* Poka-Yoke semaphore */
+  --pk-green: #22c55e;
+  --pk-green-bg: #f0fdf4;
+  --pk-green-border: #86efac;
+  --pk-yellow: #eab308;
+  --pk-yellow-bg: #fefce8;
+  --pk-yellow-border: #fde047;
+  --pk-orange: #f97316;
+  --pk-orange-bg: #fff7ed;
+  --pk-orange-border: #fdba74;
+  --pk-red: #ef4444;
+  --pk-red-bg: #fef2f2;
+  --pk-red-border: #fca5a5;
 }
 
 /* ========================================================================
-   CONTENEDOR PRINCIPAL
+   LAYOUT
    ======================================================================== */
 .o_smrp {
   background: var(--smrp-bg);
@@ -45,7 +56,6 @@
   padding: 0;
 }
 
-/* Wrapper interno - ESTE ES EL QUE HACE EL SCROLL VERTICAL */
 .o_smrp_wrapper {
   flex: 1;
   overflow-y: auto;
@@ -53,26 +63,15 @@
   -webkit-overflow-scrolling: touch;
   padding: 16px;
   padding-bottom: 100px;
-
-  &::-webkit-scrollbar {
-    width: 8px;
-  }
-
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 4px;
-
-    &:hover {
-      background: var(--smrp-brand-blue-2);
-    }
-  }
-
   scrollbar-width: thin;
   scrollbar-color: var(--smrp-brand-blue-2) transparent;
+
+  &::-webkit-scrollbar { width: 8px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+  &::-webkit-scrollbar-thumb {
+    background: #cbd5e1; border-radius: 4px;
+    &:hover { background: var(--smrp-brand-blue-2); }
+  }
 }
 
 .o_smrp_container {
@@ -82,9 +81,7 @@
   gap: var(--smrp-gap);
 }
 
-.o_smrp_section {
-  padding: 8px;
-}
+.o_smrp_section { padding: 8px; }
 
 /* ========================================================================
    STEPS
@@ -120,7 +117,6 @@
       background: var(--smrp-brand-blue-3);
       color: var(--smrp-brand-blue);
     }
-
     &.done {
       border-color: var(--smrp-brand-green);
       background: var(--smrp-brand-green-2);
@@ -129,8 +125,7 @@
   }
 
   .num {
-    width: 24px;
-    height: 24px;
+    width: 24px; height: 24px;
     border-radius: 999px;
     display: inline-grid;
     place-items: center;
@@ -153,30 +148,18 @@
 }
 
 /* ========================================================================
-   INPUTS & FORMS
+   INPUTS
    ======================================================================== */
 .o_smrp_row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: flex-end;
-  justify-content: center;
+  display: flex; flex-wrap: wrap; gap: 12px;
+  align-items: flex-end; justify-content: center;
 }
 
 .o_smrp_field_group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex: 1;
-  min-width: 200px;
+  display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 200px;
 }
 
-.o_smrp_label {
-  font-size: 13px;
-  font-weight: 700;
-  color: #555;
-  margin-left: 2px;
-}
+.o_smrp_label { font-size: 13px; font-weight: 700; color: #555; margin-left: 2px; }
 
 .o_smrp_input {
   padding: 11px 14px;
@@ -188,11 +171,7 @@
   background: #fff;
   transition: all 0.2s ease;
 
-  &--xl {
-    font-size: var(--smrp-fs-lg);
-    padding: 12px 16px;
-  }
-
+  &--xl { font-size: var(--smrp-fs-lg); padding: 12px 16px; }
   &:focus {
     outline: none;
     border-color: var(--smrp-brand-blue);
@@ -200,7 +179,6 @@
   }
 }
 
-/* Selector nativo estilizado */
 select.o_smrp_input {
   appearance: none;
   background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23007CB2%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
@@ -210,39 +188,25 @@ select.o_smrp_input {
   padding-right: 30px;
 }
 
-/* Autocomplete Container */
-.o_smrp_autocomplete {
-  position: relative;
-  width: 100%;
-}
+.o_smrp_autocomplete { position: relative; width: 100%; }
 
 .o_smrp_autocomplete_list {
-  position: absolute;
-  top: 100%; left: 0; right: 0;
-  background: #fff;
-  border: 1px solid #d3d8e3;
-  border-top: none;
+  position: absolute; top: 100%; left: 0; right: 0;
+  background: #fff; border: 1px solid #d3d8e3; border-top: none;
   border-radius: 0 0 8px 8px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  z-index: 100;
-  max-height: 200px;
-  overflow-y: auto;
+  z-index: 100; max-height: 200px; overflow-y: auto;
 
   .item {
-    padding: 10px 14px;
-    font-size: 14px;
-    cursor: pointer;
+    padding: 10px 14px; font-size: 14px; cursor: pointer;
     border-bottom: 1px solid #eee;
     &:last-child { border-bottom: none; }
-    &:hover {
-      background: #f6f8ff;
-      color: var(--smrp-brand-blue);
-    }
+    &:hover { background: #f6f8ff; color: var(--smrp-brand-blue); }
   }
 }
 
 /* ========================================================================
-   BOTONES
+   BUTTONS
    ======================================================================== */
 .o_smrp_btn {
   height: var(--smrp-tap);
@@ -258,390 +222,404 @@ select.o_smrp_input {
   flex-shrink: 0;
   transition: all 0.2s ease;
 
-  &:hover:not(:disabled) {
-    filter: brightness(1.05);
-    transform: translateY(-1px);
-  }
+  &:hover:not(:disabled) { filter: brightness(1.05); transform: translateY(-1px); }
+  &:active:not(:disabled) { transform: translateY(0); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
 
-  &:active:not(:disabled) {
-    transform: translateY(0);
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  &--ghost {
-    background: #fff;
-    color: var(--smrp-brand-blue);
-  }
-
-  &--xl {
-    min-width: 160px;
-  }
-
-  &.confirm {
-    background: var(--smrp-brand-green);
-    border-color: var(--smrp-brand-green);
-    color: #062b10;
-  }
+  &--ghost { background: #fff; color: var(--smrp-brand-blue); }
+  &--xl { min-width: 160px; }
+  &--sm { height: 36px; padding: 0 12px; font-size: 13px; min-width: auto; }
+  &--danger { background: var(--pk-red); border-color: var(--pk-red); color: #fff; }
+  &.confirm { background: var(--smrp-brand-green); border-color: var(--smrp-brand-green); color: #062b10; }
 }
 
 /* ========================================================================
    ACTIONS BAR
    ======================================================================== */
 .o_smrp_actions {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-  align-items: center;
-  flex-wrap: wrap;
-  padding: 8px 0;
+  display: flex; gap: 10px; justify-content: center;
+  align-items: center; flex-wrap: wrap; padding: 8px 0;
 
-  &--end {
-    justify-content: flex-end;
-  }
-
-  &--center {
-    justify-content: center;
-  }
-
+  &--end { justify-content: flex-end; }
+  &--center { justify-content: center; }
   &--sticky {
-    position: sticky;
-    bottom: 0;
-    padding: 12px 16px;
-    margin: 0 -16px -16px;
+    position: sticky; bottom: 0;
+    padding: 12px 16px; margin: 0 -16px -16px;
     background: linear-gradient(180deg,
-      rgba(246, 248, 255, 0) 0%,
-      rgba(246, 248, 255, 0.97) 20%,
-      rgba(246, 248, 255, 1) 50%
+      rgba(246,248,255,0) 0%, rgba(246,248,255,0.97) 20%, rgba(246,248,255,1) 50%
     );
     backdrop-filter: blur(8px);
     z-index: 50;
-    border-top: 1px solid rgba(207, 214, 234, 0.2);
+    border-top: 1px solid rgba(207,214,234,0.2);
   }
 }
 
 /* ========================================================================
-   FILTERS
-   ======================================================================== */
-.o_smrp_filters {
-  position: sticky;
-  top: 0;
-  background: var(--smrp-bg);
-  z-index: 90;
-  padding: 12px 0;
-  margin-bottom: 16px;
-  border-bottom: 1px solid rgba(207, 214, 234, 0.3);
-}
-
-/* ========================================================================
-   CARDS (GRID)
+   CARDS
    ======================================================================== */
 .o_smrp_cards {
-  display: grid;
-  gap: 12px;
+  display: grid; gap: 12px;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  padding: 4px;
-  margin-bottom: 16px;
-
-  &--center {
-    justify-items: center;
-  }
+  padding: 4px; margin-bottom: 16px;
+  &--center { justify-items: center; }
 }
 
 .o_smrp_card {
-  width: 100%;
-  max-width: 300px;
+  width: 100%; max-width: 300px;
   border: 1px solid #d3d8e3;
   border-radius: var(--smrp-radius);
   background: var(--smrp-card);
   box-shadow: var(--smrp-shadow);
-  padding: 16px;
-  text-align: center;
-  position: relative;
-  transition: all 0.2s ease;
+  padding: 16px; text-align: center;
+  position: relative; transition: all 0.2s ease;
 
-  &_icon {
-    font-size: 28px;
-    margin-bottom: 8px;
-    line-height: 1;
-  }
-
-  &_title {
-    font-size: var(--smrp-fs-lg);
-    font-weight: 600;
-    color: var(--smrp-ink);
-    margin-bottom: 4px;
-    line-height: 1.3;
-  }
-
-  &_sub {
-    font-size: 14px;
-    color: #6b7996;
-  }
+  &_icon { font-size: 28px; margin-bottom: 8px; line-height: 1; }
+  &_title { font-size: var(--smrp-fs-lg); font-weight: 600; margin-bottom: 4px; line-height: 1.3; }
+  &_sub { font-size: 14px; color: #6b7996; }
 
   &.selectable {
     cursor: pointer;
-    &:hover {
-      border-color: var(--smrp-brand-blue-2);
-      box-shadow: 0 8px 24px rgba(39, 55, 190, 0.15);
-      transform: translateY(-2px);
-    }
-    &:active {
-      transform: translateY(0);
-    }
+    &:hover { border-color: var(--smrp-brand-blue-2); box-shadow: 0 8px 24px rgba(39,55,190,0.15); transform: translateY(-2px); }
+    &:active { transform: translateY(0); }
   }
 
   &.selected {
-    border-color: var(--smrp-brand-blue);
-    border-width: 2px;
-    background: var(--smrp-brand-blue-3);
-    padding: 15px;
+    border-color: var(--smrp-brand-blue); border-width: 2px;
+    background: var(--smrp-brand-blue-3); padding: 15px;
     .o_smrp_check { display: grid; }
   }
 }
 
 .o_smrp_check {
-  position: absolute;
-  top: -10px;
-  right: -10px;
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  background: var(--smrp-brand-green);
-  color: #062b10;
-  display: none;
-  place-items: center;
-  font-weight: 700;
-  font-size: 14px;
-  box-shadow: 0 4px 12px rgba(62, 242, 78, 0.4);
+  position: absolute; top: -10px; right: -10px;
+  width: 28px; height: 28px; border-radius: 999px;
+  background: var(--smrp-brand-green); color: #062b10;
+  display: none; place-items: center;
+  font-weight: 700; font-size: 14px;
+  box-shadow: 0 4px 12px rgba(62,242,78,0.4);
 }
 
 /* ========================================================================
    SELECTED BANNER
    ======================================================================== */
 .o_smrp_selected {
-  position: sticky;
-  bottom: 0;
-  padding: 14px 16px;
-  margin: 16px -16px -16px;
+  position: sticky; bottom: 0;
+  padding: 14px 16px; margin: 16px -16px -16px;
   background: linear-gradient(180deg,
-    rgba(246, 248, 255, 0) 0%,
-    rgba(246, 248, 255, 0.97) 20%,
-    rgba(246, 248, 255, 1) 50%
+    rgba(246,248,255,0) 0%, rgba(246,248,255,0.97) 20%, rgba(246,248,255,1) 50%
   );
   backdrop-filter: blur(8px);
   border-radius: var(--smrp-radius) var(--smrp-radius) 0 0;
-  text-align: center;
-  color: var(--smrp-ink);
-  font-size: var(--smrp-fs-base);
-  z-index: 50;
-  border-top: 1px solid rgba(207, 214, 234, 0.3);
+  text-align: center; font-size: var(--smrp-fs-base);
+  z-index: 50; border-top: 1px solid rgba(207,214,234,0.3);
 
   .badge {
-    display: inline-block;
-    padding: 4px 10px;
-    background: var(--smrp-brand-green-2);
-    color: #062b10;
-    border-radius: 8px;
-    font-size: 12px;
-    font-weight: 600;
-    margin-right: 8px;
+    display: inline-block; padding: 4px 10px;
+    background: var(--smrp-brand-green-2); color: #062b10;
+    border-radius: 8px; font-size: 12px; font-weight: 600; margin-right: 8px;
   }
-
   strong { font-weight: 600; }
 }
 
 /* ========================================================================
-   WIZARD, LOTES & PROGRESO
+   BOXES, WIZARD
    ======================================================================== */
-.o_smrp_wizard {
-  display: grid;
-  gap: 16px;
-}
+.o_smrp_wizard { display: grid; gap: 16px; }
 
 .o_smrp_counter {
-  text-align: center;
-  font-size: var(--smrp-fs-base);
-  color: var(--smrp-brand-blue);
-  font-weight: 600;
-  padding: 10px;
-  background: #fff;
-  border-radius: var(--smrp-radius);
-  box-shadow: var(--smrp-shadow);
+  text-align: center; font-size: var(--smrp-fs-base);
+  color: var(--smrp-brand-blue); font-weight: 600;
+  padding: 10px; background: #fff;
+  border-radius: var(--smrp-radius); box-shadow: var(--smrp-shadow);
 }
 
 .o_smrp_box {
-  padding: 18px;
-  background: #fff;
-  border-radius: var(--smrp-radius);
-  box-shadow: var(--smrp-shadow);
-  display: grid;
-  gap: 12px;
+  padding: 18px; background: #fff;
+  border-radius: var(--smrp-radius); box-shadow: var(--smrp-shadow);
+  display: grid; gap: 12px;
   &--big { padding: 22px; }
 }
 
-.o_smrp_name {
-  font-size: var(--smrp-fs-lg);
-  font-weight: 600;
-  color: var(--smrp-ink);
-  line-height: 1.3;
+.o_smrp_name { font-size: var(--smrp-fs-lg); font-weight: 600; line-height: 1.3; }
+.o_smrp_meta { font-size: 14px; color: #6b7996; strong { font-weight: 600; color: var(--smrp-ink); } }
+
+/* ========================================================================
+   POKA-YOKE COMPONENT ROWS
+   ======================================================================== */
+.o_smrp_comp_table {
+  display: grid; gap: 10px;
 }
 
-.o_smrp_meta {
-  font-size: 14px;
-  color: #6b7996;
-  strong { font-weight: 600; color: var(--smrp-ink); }
-}
-
-/* Barra de progreso para lotes */
-.o_smrp_header_flex {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.o_smrp_progress_text {
-  font-size: 14px;
-  color: #555;
-  background: #f0f0f0;
-  padding: 4px 8px;
-  border-radius: 6px;
-  strong { color: var(--smrp-brand-blue); }
-}
-
-.o_smrp_progress_bar {
-  height: 10px;
-  background: #e2e8f0;
-  border-radius: 5px;
-  overflow: hidden;
-  margin-bottom: 20px;
-  position: relative;
-}
-
-.o_smrp_progress_fill {
-  height: 100%;
-  background: var(--smrp-brand-green);
-  transition: width 0.3s ease;
-  box-shadow: 0 0 10px rgba(62, 242, 78, 0.5);
-}
-
-/* Grid de Lotes con Input */
-.o_smrp_lots {
+.o_smrp_comp_row {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 12px;
-  padding: 4px;
-  margin-bottom: 16px;
-}
-
-.o_smrp_lot_input_card {
-  border: 1px solid #d3d8e3;
-  border-radius: var(--smrp-radius);
-  padding: 14px;
-  background: #fff;
-  transition: all 0.2s ease;
-  display: flex;
-  flex-direction: column;
+  grid-template-columns: 1fr 100px 120px 120px auto;
   gap: 10px;
+  align-items: center;
+  padding: 14px 16px;
+  background: #fff;
+  border-radius: var(--smrp-radius);
+  border: 2px solid #e2e8f0;
   box-shadow: var(--smrp-shadow);
+  transition: all 0.2s ease;
 
-  &.active {
-    border-color: var(--smrp-brand-blue);
-    background: #f0f4ff;
-    box-shadow: 0 0 0 2px var(--smrp-brand-blue-3);
-  }
-
-  .head {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-
-    .name {
-      font-weight: 700;
-      font-size: 15px;
-      color: var(--smrp-ink);
-      word-break: break-all;
-    }
-
-    .avail {
-      font-size: 12px;
-      color: #444;
-      background: #eef1ff;
-      padding: 3px 8px;
-      border-radius: 99px;
-      white-space: nowrap;
-      flex-shrink: 0;
-      margin-left: 8px;
-    }
-  }
-
-  .input-area {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: auto;
-
-    label {
-      font-size: 13px;
-      font-weight: 600;
-      color: #666;
-    }
-  }
+  &--green  { border-color: var(--pk-green-border); background: var(--pk-green-bg); }
+  &--yellow { border-color: var(--pk-yellow-border); background: var(--pk-yellow-bg); }
+  &--orange { border-color: var(--pk-orange-border); background: var(--pk-orange-bg); }
+  &--red    { border-color: var(--pk-red-border); background: var(--pk-red-bg); }
 }
 
-.o_smrp_input_small {
-  padding: 6px 10px;
-  border: 1px solid #d0d7de;
-  border-radius: 6px;
+.o_smrp_comp_name {
+  font-weight: 700; font-size: 15px;
+  .uom { font-weight: 400; color: #6b7996; font-size: 13px; }
+}
+
+.o_smrp_comp_formula {
+  text-align: center; font-size: 14px; color: #6b7996;
+  .val { font-weight: 700; color: var(--smrp-ink); font-size: 16px; display: block; }
+}
+
+.o_smrp_comp_real_input {
+  padding: 8px 10px;
+  border: 2px solid #d0d7de;
+  border-radius: 10px;
+  font-size: 18px;
+  font-weight: 800;
+  text-align: center;
   width: 100%;
-  font-weight: 700;
-  font-size: 15px;
   color: var(--smrp-brand-blue);
-  text-align: right;
   background: #fff;
+  transition: all 0.2s;
 
   &:focus {
     outline: none;
     border-color: var(--smrp-brand-blue);
-    box-shadow: 0 0 0 2px var(--smrp-brand-blue-3);
+    box-shadow: 0 0 0 3px var(--smrp-brand-blue-3);
   }
 }
 
-.o_smrp_lot_search {
-  margin-bottom: 4px;
+.o_smrp_comp_status {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 600;
+  min-width: 0;
+
+  .icon { font-size: 20px; flex-shrink: 0; }
+  .msg { line-height: 1.3; }
+
+  &--green  { color: #15803d; }
+  &--yellow { color: #a16207; }
+  &--orange { color: #c2410c; }
+  &--red    { color: #dc2626; }
 }
+
+.o_smrp_comp_actions {
+  display: flex; gap: 4px;
+}
+
+/* Header labels for table */
+.o_smrp_comp_header {
+  display: grid;
+  grid-template-columns: 1fr 100px 120px 120px auto;
+  gap: 10px;
+  padding: 0 16px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #6b7996;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* BOM badge */
+.o_smrp_bom_badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 18px; border-radius: 12px;
+  font-size: 14px; font-weight: 600;
+  margin-bottom: 12px;
+
+  &--exists { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
+  &--new    { background: #fef9c3; color: #854d0e; border: 1px solid #fde047; }
+}
+
+/* ========================================================================
+   BYPRODUCTS
+   ======================================================================== */
+.o_smrp_bp_list { display: grid; gap: 10px; }
+
+.o_smrp_bp_row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px;
+  background: #fff; border-radius: var(--smrp-radius);
+  border: 1px solid #d3d8e3; box-shadow: var(--smrp-shadow);
+
+  .name { flex: 1; font-weight: 600; font-size: 15px; }
+  .uom { font-size: 13px; color: #6b7996; }
+}
+
+/* ========================================================================
+   PROGRESS BAR
+   ======================================================================== */
+.o_smrp_header_flex {
+  display: flex; justify-content: space-between;
+  align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;
+}
+
+.o_smrp_progress_text {
+  font-size: 14px; color: #555; background: #f0f0f0;
+  padding: 4px 8px; border-radius: 6px;
+  strong { color: var(--smrp-brand-blue); }
+}
+
+.o_smrp_progress_bar {
+  height: 10px; background: #e2e8f0;
+  border-radius: 5px; overflow: hidden; margin-bottom: 20px;
+}
+
+.o_smrp_progress_fill {
+  height: 100%; background: var(--smrp-brand-green);
+  transition: width 0.3s ease;
+  box-shadow: 0 0 10px rgba(62,242,78,0.5);
+}
+
+/* ========================================================================
+   LOTS GRID
+   ======================================================================== */
+.o_smrp_lots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px; padding: 4px; margin-bottom: 16px;
+}
+
+.o_smrp_lot_input_card {
+  border: 1px solid #d3d8e3; border-radius: var(--smrp-radius);
+  padding: 14px; background: #fff;
+  transition: all 0.2s ease;
+  display: flex; flex-direction: column; gap: 10px;
+  box-shadow: var(--smrp-shadow);
+
+  &.active { border-color: var(--smrp-brand-blue); background: #f0f4ff; box-shadow: 0 0 0 2px var(--smrp-brand-blue-3); }
+
+  .head { display: flex; justify-content: space-between; align-items: flex-start;
+    .name { font-weight: 700; font-size: 15px; word-break: break-all; }
+    .avail { font-size: 12px; color: #444; background: #eef1ff; padding: 3px 8px; border-radius: 99px; white-space: nowrap; flex-shrink: 0; margin-left: 8px; }
+  }
+  .input-area { display: flex; align-items: center; gap: 8px; margin-top: auto;
+    label { font-size: 13px; font-weight: 600; color: #666; }
+  }
+}
+
+.o_smrp_input_small {
+  padding: 6px 10px; border: 1px solid #d0d7de;
+  border-radius: 6px; width: 100%;
+  font-weight: 700; font-size: 15px;
+  color: var(--smrp-brand-blue); text-align: right; background: #fff;
+  &:focus { outline: none; border-color: var(--smrp-brand-blue); box-shadow: 0 0 0 2px var(--smrp-brand-blue-3); }
+}
+
+.o_smrp_lot_search { margin-bottom: 4px; }
 
 .o_smrp_empty {
+  text-align: center; padding: 32px 16px;
+  color: #6b7996; font-size: var(--smrp-fs-base);
+  &--block { display: block; padding: 20px; background: #f9fafb; border-radius: var(--smrp-radius); border: 1px dashed #d3d8e3; }
+}
+
+/* ========================================================================
+   REVIEW / SUMMARY
+   ======================================================================== */
+.o_smrp_review_grid { display: grid; gap: 14px; }
+
+.o_smrp_review_card {
+  padding: 18px; background: #fff;
+  border-radius: var(--smrp-radius); box-shadow: var(--smrp-shadow);
+  border: 1px solid #e2e8f0;
+
+  .title { font-size: 14px; font-weight: 700; color: #6b7996; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 10px; }
+  .value { font-size: 17px; font-weight: 700; color: var(--smrp-ink); }
+}
+
+.o_smrp_review_alerts {
+  padding: 16px; border-radius: var(--smrp-radius);
+  margin-bottom: 12px;
+
+  &--red    { background: var(--pk-red-bg); border: 2px solid var(--pk-red-border); }
+  &--orange { background: var(--pk-orange-bg); border: 2px solid var(--pk-orange-border); }
+  &--yellow { background: var(--pk-yellow-bg); border: 2px solid var(--pk-yellow-border); }
+  &--clean  { background: var(--pk-green-bg); border: 2px solid var(--pk-green-border); }
+}
+
+.o_smrp_review_alert_title {
+  font-size: 16px; font-weight: 700; margin-bottom: 8px;
+  display: flex; align-items: center; gap: 8px;
+}
+
+.o_smrp_review_alert_item {
+  padding: 8px 12px; margin: 4px 0;
+  border-radius: 8px; background: rgba(255,255,255,0.7);
+  font-size: 14px; display: flex; align-items: center; gap: 8px;
+
+  .icon { font-size: 18px; }
+  .name { font-weight: 700; }
+  .msg  { color: #555; }
+}
+
+.o_smrp_review_comp_summary {
+  display: grid; gap: 8px;
+}
+
+.o_smrp_review_comp_line {
+  display: grid;
+  grid-template-columns: 1fr 80px 80px 80px auto;
+  gap: 8px; align-items: center;
+  padding: 10px 14px;
+  background: #fff; border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  font-size: 14px;
+
+  .name { font-weight: 700; }
+  .num { text-align: center; font-weight: 600; }
+  .diff { text-align: center; font-weight: 700; font-size: 13px; }
+
+  &--green  .diff { color: var(--pk-green); }
+  &--yellow .diff { color: var(--pk-yellow); }
+  &--orange .diff { color: var(--pk-orange); }
+  &--red    .diff { color: var(--pk-red); }
+}
+
+/* ========================================================================
+   AUTOSAVE INDICATOR
+   ======================================================================== */
+.o_smrp_save_indicator {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: #6b7996;
+  padding: 4px 10px; border-radius: 8px;
+  background: rgba(255,255,255,0.8);
+
+  &--saving { color: var(--smrp-brand-blue); }
+  &--saved  { color: #15803d; }
+  &--error  { color: var(--pk-red); }
+}
+
+/* ========================================================================
+   RECOVERY MODAL
+   ======================================================================== */
+.o_smrp_recovery {
+  padding: 20px; background: #fff;
+  border-radius: var(--smrp-radius);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+  border: 2px solid var(--smrp-brand-blue);
   text-align: center;
-  padding: 32px 16px;
-  color: #6b7996;
-  font-size: var(--smrp-fs-base);
-  &--block {
-    display: block;
-    padding: 20px;
-    background: #f9fafb;
-    border-radius: var(--smrp-radius);
-    border: 1px dashed #d3d8e3;
-  }
+  max-width: 500px; margin: 20px auto;
+
+  .icon { font-size: 48px; margin-bottom: 12px; }
+  .title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+  .desc { font-size: 14px; color: #6b7996; margin-bottom: 16px; }
 }
 
 /* ========================================================================
    DONE STATE
    ======================================================================== */
 .o_smrp_done {
-  text-align: center;
-  padding: 32px 0;
-  &_icon {
-    font-size: 72px;
-    margin-bottom: 16px;
-    animation: bounce 0.6s ease;
-  }
+  text-align: center; padding: 32px 0;
+  &_icon { font-size: 72px; margin-bottom: 16px; animation: bounce 0.6s ease; }
 }
 
 @keyframes bounce {
@@ -650,62 +628,34 @@ select.o_smrp_input {
 }
 
 /* ========================================================================
-   NAV SUPERIOR
+   NAV
    ======================================================================== */
 .o_smrp_nav {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-  padding: 12px;
-  background: var(--smrp-bg);
-  z-index: 110;
-  border-bottom: 1px solid #d3d8e3;
-  flex-shrink: 0;
+  display: flex; gap: 8px; justify-content: center;
+  padding: 12px; background: var(--smrp-bg);
+  z-index: 110; border-bottom: 1px solid #d3d8e3; flex-shrink: 0;
 }
 
 .o_smrp_nav_btn {
   padding: 12px 20px;
-  border: 1px solid #d3d8e3;
-  border-radius: var(--smrp-radius);
-  background: #fff;
-  color: var(--smrp-ink);
-  font-size: var(--smrp-fs-base);
-  cursor: pointer;
-  transition: all .2s;
-
+  border: 1px solid #d3d8e3; border-radius: var(--smrp-radius);
+  background: #fff; color: var(--smrp-ink);
+  font-size: var(--smrp-fs-base); cursor: pointer; transition: all .2s;
   &:hover { border-color: var(--smrp-brand-blue-2); }
-  &.active {
-    background: var(--smrp-brand-blue);
-    color: #fff;
-    border-color: var(--smrp-brand-blue);
-  }
+  &.active { background: var(--smrp-brand-blue); color: #fff; border-color: var(--smrp-brand-blue); }
 }
 
 /* ========================================================================
-   LISTA DE ÓRDENES
+   LIST
    ======================================================================== */
-.o_smrp_list {
-  display: grid;
-  gap: 12px;
-  padding: 4px;
-}
+.o_smrp_list { display: grid; gap: 12px; padding: 4px; }
 
 .o_smrp_list_item {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 16px;
-  border: 1px solid #d3d8e3;
-  border-radius: var(--smrp-radius);
-  background: #fff;
-  cursor: pointer;
-  box-shadow: var(--smrp-shadow);
-  transition: all .2s;
-
-  &:hover {
-    border-color: var(--smrp-brand-blue-2);
-    box-shadow: 0 0 0 3px var(--smrp-brand-blue-3);
-  }
+  display: flex; align-items: center; gap: 16px;
+  padding: 16px; border: 1px solid #d3d8e3;
+  border-radius: var(--smrp-radius); background: #fff;
+  cursor: pointer; box-shadow: var(--smrp-shadow); transition: all .2s;
+  &:hover { border-color: var(--smrp-brand-blue-2); box-shadow: 0 0 0 3px var(--smrp-brand-blue-3); }
 }
 
 .o_smrp_list_icon { font-size: 32px; flex-shrink: 0; }
@@ -714,281 +664,102 @@ select.o_smrp_input {
 .o_smrp_list_meta { font-size: 14px; opacity: .8; }
 
 .o_smrp_list_badge {
-  padding: 6px 12px;
-  border-radius: 999px;
-  font-size: 13px;
-  font-weight: 700;
-  flex-shrink: 0;
+  padding: 6px 12px; border-radius: 999px;
+  font-size: 13px; font-weight: 700; flex-shrink: 0;
   &.success { background: var(--smrp-brand-green-2); color: #062b10; }
   &.danger  { background: #ffe0e0; color: #8b0000; }
   &.warning { background: #fff4e0; color: #8b5a00; }
   &.info    { background: var(--smrp-brand-blue-3); color: var(--smrp-brand-blue); }
 }
 
-/* Detalle */
 .o_smrp_detail_row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 0;
-  border-bottom: 1px solid #f0f0f0;
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 0; border-bottom: 1px solid #f0f0f0;
   &:last-child { border-bottom: none; }
 }
 .o_smrp_detail_label { font-weight: 700; min-width: 180px; flex-shrink: 0; }
 
 /* ========================================================================
-   ★ CAPTURA DE LOTE MANUAL (XX-##-##-##-##)
+   LOT CONFIG (XX-##-##-##-##)
    ======================================================================== */
-
-/* Tarjeta contenedor principal */
 .o_smrp_lot_config_card {
-  background: #fff;
-  border-radius: 20px;
-  box-shadow: 0 8px 32px rgba(39, 55, 190, 0.1), 0 2px 8px rgba(0, 0, 0, 0.04);
-  padding: 28px;
-  display: grid;
-  gap: 24px;
-  max-width: 860px;
-  margin: 0 auto;
+  background: #fff; border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(39,55,190,0.1), 0 2px 8px rgba(0,0,0,0.04);
+  padding: 28px; display: grid; gap: 24px;
+  max-width: 860px; margin: 0 auto;
 }
 
-/* Cabecera */
-.o_smrp_lot_config_header {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
+.o_smrp_lot_config_header { display: flex; align-items: center; gap: 16px; }
+.o_smrp_lot_config_icon { font-size: 40px; line-height: 1; flex-shrink: 0; }
+.o_smrp_lot_config_title { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+.o_smrp_lot_config_subtitle { font-size: 14px; color: #6b7996; strong { color: var(--smrp-ink); font-weight: 600; } }
 
-.o_smrp_lot_config_icon {
-  font-size: 40px;
-  line-height: 1;
-  flex-shrink: 0;
-  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.15));
-}
-
-.o_smrp_lot_config_title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--smrp-ink);
-  margin-bottom: 4px;
-}
-
-.o_smrp_lot_config_subtitle {
-  font-size: 14px;
-  color: #6b7996;
-  strong { color: var(--smrp-ink); font-weight: 600; }
-}
-
-/* Referencia de formato */
 .o_smrp_lot_pattern_ref {
-  background: linear-gradient(135deg, #f8faff 0%, #f0f4ff 100%);
-  border: 1px solid #dde3f5;
-  border-radius: 12px;
-  padding: 16px 20px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
+  background: linear-gradient(135deg, #f8faff, #f0f4ff);
+  border: 1px solid #dde3f5; border-radius: 12px;
+  padding: 16px 20px; display: flex; align-items: center;
+  gap: 16px; flex-wrap: wrap;
 }
 
-.ref-label {
-  font-size: 13px;
-  font-weight: 700;
-  color: #6b7996;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  flex-shrink: 0;
-}
+.ref-label { font-size: 13px; font-weight: 700; color: #6b7996; text-transform: uppercase; letter-spacing: 0.05em; }
+.ref-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ref-dash { font-size: 18px; font-weight: 700; color: #9ca3af; }
 
-.ref-chips {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.ref-dash {
-  font-size: 18px;
-  font-weight: 700;
-  color: #9ca3af;
-  line-height: 1;
-}
-
-/* Chips del patrón de referencia */
 .chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 15px;
-  font-weight: 800;
-  font-family: 'Courier New', Courier, monospace;
-  letter-spacing: 0.08em;
-  padding: 6px 14px;
-  border-radius: 8px;
-  border: 2px dashed;
-
-  &--text {
-    color: var(--smrp-lot-text-color);
-    background: var(--smrp-lot-text-bg);
-    border-color: var(--smrp-lot-text-border);
-  }
-
-  &--num {
-    color: var(--smrp-lot-num-color);
-    background: var(--smrp-lot-num-bg);
-    border-color: var(--smrp-lot-num-border);
-  }
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 800; font-family: 'Courier New', monospace;
+  letter-spacing: 0.08em; padding: 6px 14px; border-radius: 8px; border: 2px dashed;
+  &--text { color: var(--smrp-lot-text-color); background: var(--smrp-lot-text-bg); border-color: var(--smrp-lot-text-border); }
+  &--num  { color: var(--smrp-lot-num-color); background: var(--smrp-lot-num-bg); border-color: var(--smrp-lot-num-border); }
 }
 
-.ref-example {
-  font-size: 13px;
-  color: #6b7996;
-  margin-left: auto;
-  padding: 6px 12px;
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  strong {
-    color: var(--smrp-ink);
-    font-family: 'Courier New', Courier, monospace;
-  }
+.ref-example { font-size: 13px; color: #6b7996; margin-left: auto; padding: 6px 12px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+  strong { color: var(--smrp-ink); font-family: 'Courier New', monospace; }
 }
 
-/* ── Builder segmentado ─────────────────────────────────────── */
 .o_smrp_lot_builder {
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  padding: 8px 0;
+  display: flex; align-items: flex-start; justify-content: center;
+  gap: 10px; flex-wrap: wrap; padding: 8px 0;
 }
 
-/* Separador visual entre segmentos */
 .o_smrp_lot_dash {
-  font-size: 28px;
-  font-weight: 800;
-  color: #9ca3af;
-  align-self: center;
-  margin-top: -12px; /* compensa la altura del label+badge */
-  user-select: none;
-  flex-shrink: 0;
+  font-size: 28px; font-weight: 800; color: #9ca3af;
+  align-self: center; margin-top: -12px; user-select: none;
 }
 
-/* Tarjeta individual de cada segmento */
 .o_smrp_lot_seg {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  min-width: 90px;
-  flex-shrink: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 90px;
 
-  /* Badge de tipo (ABC / 123) */
   .seg-badge {
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 0.06em;
-    padding: 3px 10px;
-    border-radius: 999px;
-
-    &--text {
-      background: var(--smrp-lot-text-bg);
-      color: var(--smrp-lot-text-color);
-      border: 1px solid var(--smrp-lot-text-border);
-    }
-
-    &--num {
-      background: var(--smrp-lot-num-bg);
-      color: var(--smrp-lot-num-color);
-      border: 1px solid var(--smrp-lot-num-border);
-    }
+    font-size: 11px; font-weight: 800; letter-spacing: 0.06em;
+    padding: 3px 10px; border-radius: 999px;
+    &--text { background: var(--smrp-lot-text-bg); color: var(--smrp-lot-text-color); border: 1px solid var(--smrp-lot-text-border); }
+    &--num  { background: var(--smrp-lot-num-bg); color: var(--smrp-lot-num-color); border: 1px solid var(--smrp-lot-num-border); }
   }
 
-  /* Etiqueta descriptiva */
-  .seg-label {
-    font-size: 12px;
-    font-weight: 600;
-    color: #9ca3af;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
+  .seg-label { font-size: 12px; font-weight: 600; color: #9ca3af; text-transform: uppercase; }
 
-  /* Input grande del segmento */
   .seg-input {
-    width: 80px;
-    height: 64px;
-    text-align: center;
-    font-size: 26px;
-    font-weight: 800;
-    font-family: 'Courier New', Courier, monospace;
-    letter-spacing: 0.06em;
-    border: 2.5px solid #e2e8f0;
-    border-radius: 12px;
-    background: #fafbff;
-    transition: all 0.2s ease;
-    caret-color: var(--smrp-brand-blue);
-
-    &::placeholder {
-      font-size: 22px;
-      color: #d1d5db;
-      font-weight: 700;
+    width: 80px; height: 64px; text-align: center;
+    font-size: 26px; font-weight: 800; font-family: 'Courier New', monospace;
+    border: 2.5px solid #e2e8f0; border-radius: 12px;
+    background: #fafbff; transition: all 0.2s; caret-color: var(--smrp-brand-blue);
+    &::placeholder { font-size: 22px; color: #d1d5db; }
+    &:focus { outline: none; background: #fff; box-shadow: 0 0 0 4px rgba(39,55,190,0.12); }
+    &--text { color: var(--smrp-lot-text-color); border-color: var(--smrp-lot-text-border);
+      &:focus { border-color: var(--smrp-lot-text-color); box-shadow: 0 0 0 4px rgba(124,58,237,0.12); }
     }
-
-    &:focus {
-      outline: none;
-      background: #fff;
-      box-shadow: 0 0 0 4px rgba(39, 55, 190, 0.12);
-    }
-
-    /* Variante texto (letras) */
-    &--text {
-      color: var(--smrp-lot-text-color);
-      border-color: var(--smrp-lot-text-border);
-      &:focus {
-        border-color: var(--smrp-lot-text-color);
-        box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.12);
-      }
-    }
-
-    /* Variante numérica */
-    &--num {
-      color: var(--smrp-lot-num-color);
-      border-color: var(--smrp-lot-num-border);
-      &:focus {
-        border-color: var(--smrp-lot-num-color);
-        box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.12);
-      }
+    &--num { color: var(--smrp-lot-num-color); border-color: var(--smrp-lot-num-border);
+      &:focus { border-color: var(--smrp-lot-num-color); box-shadow: 0 0 0 4px rgba(29,78,216,0.12); }
     }
   }
 
-  /* Pie: hint o error */
   .seg-footer { min-height: 18px; }
   .seg-hint { font-size: 11px; color: #9ca3af; text-align: center; }
   .seg-error { font-size: 11px; color: #ef4444; text-align: center; font-weight: 600; }
 
-  /* Estado: campo completado */
-  &.filled .seg-input {
-    background: linear-gradient(135deg, #fafbff 0%, #f0f4ff 100%);
-    border-color: var(--smrp-brand-blue-2);
-
-    &--text {
-      background: var(--smrp-lot-text-bg);
-      border-color: var(--smrp-lot-text-color);
-    }
-    &--num {
-      background: var(--smrp-lot-num-bg);
-      border-color: var(--smrp-lot-num-color);
-    }
-  }
-
-  /* Estado: error de validación */
-  &.error .seg-input {
-    border-color: #ef4444 !important;
-    background: #fff5f5;
-    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12) !important;
-    animation: smrp-shake 0.35s ease;
-  }
+  &.filled .seg-input { background: linear-gradient(135deg, #fafbff, #f0f4ff); border-color: var(--smrp-brand-blue-2); }
+  &.error .seg-input { border-color: #ef4444 !important; background: #fff5f5; box-shadow: 0 0 0 3px rgba(239,68,68,0.12) !important; animation: smrp-shake 0.35s ease; }
 }
 
 @keyframes smrp-shake {
@@ -997,60 +768,18 @@ select.o_smrp_input {
   40%, 80%  { transform: translateX(4px); }
 }
 
-/* Preview en tiempo real */
 .o_smrp_lot_preview {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 16px 24px;
-  background: linear-gradient(135deg, #1e2b8a 0%, #2737BE 100%);
-  border-radius: 14px;
-  box-shadow: 0 4px 16px rgba(39, 55, 190, 0.3);
-  flex-wrap: wrap;
-
-  .preview-label {
-    font-size: 13px;
-    font-weight: 600;
-    color: rgba(255, 255, 255, 0.7);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    flex-shrink: 0;
-  }
-
-  .preview-value {
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 28px;
-    font-weight: 900;
-    letter-spacing: 0.12em;
-    color: #fff;
-    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-    word-break: break-all;
-  }
+  display: flex; align-items: center; justify-content: center;
+  gap: 12px; padding: 16px 24px;
+  background: linear-gradient(135deg, #1e2b8a, #2737BE);
+  border-radius: 14px; box-shadow: 0 4px 16px rgba(39,55,190,0.3); flex-wrap: wrap;
+  .preview-label { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.7); text-transform: uppercase; }
+  .preview-value { font-family: 'Courier New', monospace; font-size: 28px; font-weight: 900; letter-spacing: 0.12em; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,0.2); }
 }
 
-/* Leyenda de colores */
-.o_smrp_lot_legend {
-  display: flex;
-  gap: 20px;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: #6b7996;
-}
-
-.legend-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 3px;
-  flex-shrink: 0;
-
+.o_smrp_lot_legend { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #6b7996; }
+.legend-dot { width: 12px; height: 12px; border-radius: 3px;
   &--text { background: var(--smrp-lot-text-color); }
   &--num  { background: var(--smrp-lot-num-color); }
 }
@@ -1064,19 +793,17 @@ select.o_smrp_input {
   .o_smrp_lots  { grid-template-columns: 1fr; }
   .o_smrp_card  { max-width: 100%; }
   .o_smrp_input { min-width: 100%; }
-  .o_smrp_filters .o_smrp_row { flex-direction: column; gap: 8px; }
   .o_smrp_actions { flex-direction: column; .o_smrp_btn { width: 100%; } }
-  .o_smrp_steps {
-    gap: 6px; padding: 8px;
+  .o_smrp_steps { gap: 6px; padding: 8px;
     li { font-size: 12px; padding: 6px 10px; }
     .num { width: 22px; height: 22px; font-size: 11px; }
   }
-
-  /* Lot builder en mobile */
+  .o_smrp_comp_row { grid-template-columns: 1fr; gap: 6px; }
+  .o_smrp_comp_header { display: none; }
+  .o_smrp_review_comp_line { grid-template-columns: 1fr; gap: 4px; }
   .o_smrp_lot_config_card { padding: 18px; gap: 18px; }
   .o_smrp_lot_builder { gap: 6px; }
   .o_smrp_lot_seg .seg-input { width: 58px; height: 54px; font-size: 20px; }
-  .o_smrp_lot_seg .seg-input::placeholder { font-size: 17px; }
   .o_smrp_lot_dash { font-size: 20px; }
   .o_smrp_lot_preview { padding: 14px 16px; }
   .o_smrp_lot_preview .preview-value { font-size: 20px; letter-spacing: 0.08em; }

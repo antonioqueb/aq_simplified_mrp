@@ -1,2 +1,3 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_aq_simplified_mrp_api_user,access_aq_simplified_mrp_api_user,model_aq_simplified_mrp_api,aq_simplified_mrp.group_simplified_mrp_user,1,1,1,0
+access_simplified_mrp_api_user,aq.simplified.mrp.api.user,model_aq_simplified_mrp_api,aq_simplified_mrp.group_simplified_mrp_user,1,1,1,0
+access_simplified_mrp_session_user,simplified.mrp.session.user,model_simplified_mrp_session,aq_simplified_mrp.group_simplified_mrp_user,1,1,1,1

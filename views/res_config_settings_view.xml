@@ -7,12 +7,36 @@
       <field name="inherit_id" ref="mrp.res_config_settings_view_form"/>
       <field name="arch" type="xml">
         <xpath expr="//form" position="inside">
-          <app string="Producción Simplificada" name="aq_simplified_mrp" groups="base.group_system">
+          <app string="Produccion Simplificada" name="aq_simplified_mrp" groups="base.group_system">
             <block title="Lotes de Producto Terminado">
               <setting
-                string="Generación automática de lotes"
-                help="Activo: el sistema crea el lote al confirmar la orden. Desactivado: el operador captura manualmente los segmentos del lote con el patrón XX-##-##-##-##.">
+                string="Generacion automatica de lotes"
+                help="Activo: el sistema crea el lote al confirmar la orden. Desactivado: el operador captura manualmente.">
                 <field name="simplified_mrp_auto_lot"/>
+              </setting>
+            </block>
+            <block title="Poka-Yoke: Tolerancias de desviacion">
+              <setting string="Tolerancia verde (%)">
+                <field name="smrp_tolerance_green"/>
+              </setting>
+              <setting string="Tolerancia amarilla (%)">
+                <field name="smrp_tolerance_yellow"/>
+              </setting>
+              <setting string="Tolerancia naranja (%)">
+                <field name="smrp_tolerance_orange"/>
+              </setting>
+              <setting string="Permitir confirmar con alertas rojas">
+                <field name="smrp_allow_confirm_red"/>
+              </setting>
+            </block>
+            <block title="Lista de Materiales">
+              <setting string="Crear BOM automaticamente si no existe">
+                <field name="smrp_auto_create_bom"/>
+              </setting>
+            </block>
+            <block title="Persistencia">
+              <setting string="Autoguardado activo">
+                <field name="smrp_autosave"/>
               </setting>
             </block>
           </app>

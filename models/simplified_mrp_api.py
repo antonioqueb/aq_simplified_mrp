@@ -7,42 +7,38 @@ import re
 
 _logger = logging.getLogger(__name__)
 
-DEBUG_SMRP = True
-
-# Patrón de lote: XX-##-##-##-## (2 letras, 4 grupos de 2 dígitos)
 LOT_PATTERN = re.compile(r'^[A-Za-z]{2}-\d{2}-\d{2}-\d{2}-\d{2}$')
 
 
 class AqSimplifiedMrpApi(models.TransientModel):
     _name = 'aq.simplified.mrp.api'
-    _description = 'API Simplificada de MRP (UI paso a paso)'
+    _description = 'API Simplificada de MRP con Poka-Yoke'
 
-    # ---------- Debug helpers ----------
-    def _toast(self, msg, title='MRP Debug', level='info', sticky=False):
-        if not DEBUG_SMRP:
-            return
-        try:
-            if level == 'success':
-                self.env.user.notify_success(message=msg, title=title, sticky=sticky)
-            elif level == 'warning':
-                self.env.user.notify_warning(message=msg, title=title, sticky=sticky)
-            else:
-                self.env.user.notify_info(message=msg, title=title, sticky=sticky)
-        except Exception as e:
-            _logger.debug("Toast failed: %s", e)
-
-    def _logdbg(self, *parts):
-        _logger.warning("SMRPDBG: %s", " | ".join(str(p) for p in parts))
-
-    # ---------- Config ----------
+    # ─── Config ────────────────────────────────────────────────────────────
     @api.model
     def get_mrp_config(self):
         param = self.env['ir.config_parameter'].sudo()
-        raw = param.get_param('aq_simplified_mrp.auto_lot', default='False')  # ← False por defecto
-        auto_lot = str(raw).strip() in ('True', '1', 'true')
-        return {'auto_lot': auto_lot}
 
-    # ---------- Helpers ----------
+        def _bool(key, default='False'):
+            return str(param.get_param(key, default=default)).strip() in ('True', '1', 'true')
+
+        def _float(key, default='0'):
+            try:
+                return float(param.get_param(key, default=default))
+            except (ValueError, TypeError):
+                return float(default)
+
+        return {
+            'auto_lot': _bool('aq_simplified_mrp.auto_lot'),
+            'tolerance_green': _float('aq_simplified_mrp.tolerance_green', '2'),
+            'tolerance_yellow': _float('aq_simplified_mrp.tolerance_yellow', '10'),
+            'tolerance_orange': _float('aq_simplified_mrp.tolerance_orange', '25'),
+            'allow_confirm_red': _bool('aq_simplified_mrp.allow_confirm_red', 'True'),
+            'auto_create_bom': _bool('aq_simplified_mrp.auto_create_bom', 'True'),
+            'autosave': _bool('aq_simplified_mrp.autosave', 'True'),
+        }
+
+    # ─── Helpers ───────────────────────────────────────────────────────────
     @api.model
     def _find_bom(self, product):
         Bom = self.env['mrp.bom']
@@ -67,161 +63,156 @@ class AqSimplifiedMrpApi(models.TransientModel):
             ], limit=1)
         return pt
 
-    # ---------- Data sources ----------
+    # ─── Data sources ──────────────────────────────────────────────────────
     @api.model
     def get_warehouses(self):
-        try:
-            ws = self.env['stock.warehouse'].search([])
-            return [{'id': w.id, 'name': w.name, 'code': w.code} for w in ws]
-        except Exception as e:
-            raise UserError(_('Error obteniendo almacenes: %s') % e)
+        ws = self.env['stock.warehouse'].search([])
+        return [{'id': w.id, 'name': w.name, 'code': w.code} for w in ws]
 
     @api.model
     def get_sale_orders(self, query='', limit=20):
-        try:
-            domain = [('state', 'in', ['sale', 'done'])]
-            if query:
-                domain += [('name', 'ilike', query)]
-            sos = self.env['sale.order'].search(domain, limit=int(limit), order='date_order desc, id desc')
-            return [{'id': s.id, 'name': s.name} for s in sos]
-        except Exception as e:
-            _logger.error("Error getting sale orders: %s", e)
-            return []
+        domain = [('state', 'in', ['sale', 'done'])]
+        if query:
+            domain += [('name', 'ilike', query)]
+        sos = self.env['sale.order'].search(domain, limit=int(limit), order='date_order desc, id desc')
+        return [{'id': s.id, 'name': s.name} for s in sos]
 
     @api.model
     def get_stock_locations(self, warehouse_id):
-        try:
-            wh = self.env['stock.warehouse'].browse(int(warehouse_id))
-            if not wh.exists():
-                return []
-            locs = self.env['stock.location'].search([
-                ('usage', '=', 'internal'),
-                ('location_id', 'child_of', wh.view_location_id.id),
-            ], order='name asc')
-            return [{'id': l.id, 'name': l.display_name} for l in locs]
-        except Exception as e:
-            _logger.error("Error getting locations: %s", e)
+        wh = self.env['stock.warehouse'].browse(int(warehouse_id))
+        if not wh.exists():
             return []
+        locs = self.env['stock.location'].search([
+            ('usage', '=', 'internal'),
+            ('location_id', 'child_of', wh.view_location_id.id),
+        ], order='name asc')
+        return [{'id': l.id, 'name': l.display_name} for l in locs]
 
     @api.model
     def get_finished_products(self, query='', limit=20, **kwargs):
-        try:
-            dom = [('type', 'in', ['product', 'consu'])]
-            if query and query.strip():
-                q = query.strip()
-                dom += ['|', ('name', 'ilike', q), ('default_code', 'ilike', q)]
-            prods = self.env['product.product'].search(dom, limit=int(limit), order='name asc')
-            return [{
+        dom = [('type', 'in', ['product', 'consu'])]
+        if query and query.strip():
+            q = query.strip()
+            dom += ['|', ('name', 'ilike', q), ('default_code', 'ilike', q)]
+        prods = self.env['product.product'].search(dom, limit=int(limit), order='name asc')
+        result = []
+        for p in prods:
+            bom = self._find_bom(p)
+            result.append({
                 'id': p.id,
                 'name': p.display_name,
                 'uom_id': p.uom_id.id,
                 'uom_name': p.uom_id.name,
                 'tracking': p.tracking,
-            } for p in prods]
-        except Exception as e:
-            raise UserError(_('Error buscando productos: %s') % e)
+                'has_bom': bool(bom),
+            })
+        return result
 
     @api.model
     def search_components(self, query='', limit=20, **kwargs):
-        try:
-            dom = [('type', 'in', ['product', 'consu'])]
-            if query and query.strip():
-                q = query.strip()
-                dom += ['|', ('name', 'ilike', q), ('default_code', 'ilike', q)]
-            prods = self.env['product.product'].search(dom, limit=int(limit), order='name asc')
-            return [{
-                'id': p.id,
-                'name': p.display_name,
-                'uom_id': p.uom_id.id,
-                'uom_name': p.uom_id.name,
-                'tracking': p.tracking,
-            } for p in prods]
-        except Exception as e:
-            raise UserError(_('Error buscando ingredientes: %s') % e)
+        dom = [('type', 'in', ['product', 'consu'])]
+        if query and query.strip():
+            q = query.strip()
+            dom += ['|', ('name', 'ilike', q), ('default_code', 'ilike', q)]
+        prods = self.env['product.product'].search(dom, limit=int(limit), order='name asc')
+        return [{
+            'id': p.id,
+            'name': p.display_name,
+            'uom_id': p.uom_id.id,
+            'uom_name': p.uom_id.name,
+            'tracking': p.tracking,
+        } for p in prods]
+
+    @api.model
+    def search_byproducts(self, query='', limit=20):
+        """Busca productos para subproductos."""
+        dom = [('type', 'in', ['product', 'consu'])]
+        if query and query.strip():
+            q = query.strip()
+            dom += ['|', ('name', 'ilike', q), ('default_code', 'ilike', q)]
+        prods = self.env['product.product'].search(dom, limit=int(limit), order='name asc')
+        return [{
+            'id': p.id,
+            'name': p.display_name,
+            'uom_id': p.uom_id.id,
+            'uom_name': p.uom_id.name,
+        } for p in prods]
 
     @api.model
     def get_bom_components(self, product_id, qty=1.0):
-        try:
-            product = self.env['product.product'].browse(int(product_id))
-            if not product.exists():
-                raise UserError(_('Producto no encontrado'))
-            bom = self._find_bom(product)
-            if not bom:
-                return {'bom_id': False, 'components': []}
-            base = bom.product_qty or 1.0
-            comps = []
-            for line in bom.bom_line_ids:
-                req_qty = (line.product_qty * float(qty)) / base
-                comps.append({
-                    'product_id': line.product_id.id,
-                    'name': line.product_id.display_name,
-                    'uom_id': line.product_uom_id.id or line.product_id.uom_id.id,
-                    'uom_name': line.product_uom_id.name or line.product_id.uom_id.name,
-                    'qty_required': req_qty,
-                    'tracking': line.product_id.tracking,
-                })
-            return {'bom_id': bom.id, 'components': comps}
-        except Exception as e:
-            raise UserError(_('Error obteniendo componentes BOM: %s') % e)
+        product = self.env['product.product'].browse(int(product_id))
+        if not product.exists():
+            raise UserError(_('Producto no encontrado'))
+        bom = self._find_bom(product)
+        if not bom:
+            return {'bom_id': False, 'bom_exists': False, 'components': []}
+        base = bom.product_qty or 1.0
+        comps = []
+        for line in bom.bom_line_ids:
+            req_qty = (line.product_qty * float(qty)) / base
+            comps.append({
+                'product_id': line.product_id.id,
+                'name': line.product_id.display_name,
+                'uom_id': line.product_uom_id.id or line.product_id.uom_id.id,
+                'uom_name': line.product_uom_id.name or line.product_id.uom_id.name,
+                'qty_formula': req_qty,
+                'qty_real': req_qty,
+                'tracking': line.product_id.tracking,
+            })
+        return {'bom_id': bom.id, 'bom_exists': True, 'components': comps}
 
     @api.model
     def get_lots(self, product_id, warehouse_id, limit=60, query=''):
-        try:
-            product = self.env['product.product'].browse(int(product_id))
-            wh = self.env['stock.warehouse'].browse(int(warehouse_id))
-            if not product.exists() or not wh.exists():
-                return []
-            view_loc = wh.view_location_id
-            if not view_loc:
-                return []
-            Quant = self.env['stock.quant'].sudo()
-            internal_locs = self.env['stock.location'].search([
-                ('location_id', 'child_of', view_loc.id),
-                ('usage', '=', 'internal'),
-            ])
-            domain = [
+        product = self.env['product.product'].browse(int(product_id))
+        wh = self.env['stock.warehouse'].browse(int(warehouse_id))
+        if not product.exists() or not wh.exists():
+            return []
+        view_loc = wh.view_location_id
+        if not view_loc:
+            return []
+        Quant = self.env['stock.quant'].sudo()
+        internal_locs = self.env['stock.location'].search([
+            ('location_id', 'child_of', view_loc.id),
+            ('usage', '=', 'internal'),
+        ])
+        domain = [
+            ('product_id', '=', product.id),
+            ('location_id', 'in', internal_locs.ids),
+            ('quantity', '>', 0),
+        ]
+        if query and query.strip():
+            matching_lots = self.env['stock.lot'].search([
                 ('product_id', '=', product.id),
-                ('location_id', 'in', internal_locs.ids),
-                ('quantity', '>', 0),
-            ]
-            if query and query.strip():
-                matching_lots = self.env['stock.lot'].search([
-                    ('product_id', '=', product.id),
-                    ('name', 'ilike', query.strip()),
-                ])
-                domain.append(('lot_id', 'in', matching_lots.ids))
-            quants = Quant.search(domain, limit=int(limit) * 10)
-            lot_totals = {}
-            for q in quants:
-                lot_key = q.lot_id.id if q.lot_id else False
-                if lot_key not in lot_totals:
-                    lot_totals[lot_key] = {
-                        'id': lot_key or -1,
-                        'name': q.lot_id.name if q.lot_id else _('Sin lote / General'),
-                        'qty': 0.0, 'reserved': 0.0,
-                    }
-                lot_totals[lot_key]['qty'] += q.quantity
-                lot_totals[lot_key]['reserved'] += q.reserved_quantity
-            out = []
-            for data in lot_totals.values():
-                available = data['qty'] - data['reserved']
-                if available > 0:
-                    out.append({'id': data['id'], 'name': data['name'], 'qty_available': round(available, 4)})
-            out.sort(key=lambda x: x['name'] or 'ZZZZ')
-            return out[:int(limit)]
-        except Exception as e:
-            _logger.error("Error getting lots: %s", e, exc_info=True)
-            raise UserError(_('Error obteniendo lotes: %s') % e)
+                ('name', 'ilike', query.strip()),
+            ])
+            domain.append(('lot_id', 'in', matching_lots.ids))
+        quants = Quant.search(domain, limit=int(limit) * 10)
+        lot_totals = {}
+        for q in quants:
+            lot_key = q.lot_id.id if q.lot_id else False
+            if lot_key not in lot_totals:
+                lot_totals[lot_key] = {
+                    'id': lot_key or -1,
+                    'name': q.lot_id.name if q.lot_id else _('Sin lote / General'),
+                    'qty': 0.0, 'reserved': 0.0,
+                }
+            lot_totals[lot_key]['qty'] += q.quantity
+            lot_totals[lot_key]['reserved'] += q.reserved_quantity
+        out = []
+        for data in lot_totals.values():
+            available = data['qty'] - data['reserved']
+            if available > 0:
+                out.append({'id': data['id'], 'name': data['name'], 'qty_available': round(available, 4)})
+        out.sort(key=lambda x: x['name'] or 'ZZZZ')
+        return out[:int(limit)]
 
-    # ---------- Validar lote manual ----------
+    # ─── Validar lote manual ───────────────────────────────────────────────
     @api.model
     def validate_manual_lot(self, product_id, lot_name):
-        """Valida que el nombre de lote cumpla el patrón XX-##-##-##-## y no exista ya."""
         lot_name = (lot_name or '').strip().upper()
         if not LOT_PATTERN.match(lot_name):
             raise UserError(_(
-                'El lote "%(n)s" no cumple el patrón requerido XX-##-##-##-## '
-                '(ej. AB-01-01-01-01).', n=lot_name
+                'El lote "%(n)s" no cumple el patron requerido XX-##-##-##-##.', n=lot_name
             ))
         existing = self.env['stock.lot'].search([
             ('name', '=', lot_name),
@@ -231,79 +222,152 @@ class AqSimplifiedMrpApi(models.TransientModel):
             raise UserError(_('El lote "%s" ya existe para este producto.') % lot_name)
         return True
 
-    # ---------- Create MO ----------
+    # ─── Crear/Actualizar BOM ──────────────────────────────────────────────
+    @api.model
+    def create_or_update_bom(self, product_id, components, byproducts=None, qty=1.0):
+        """
+        Crea BOM si no existe, o devuelve la existente.
+        components: [{'product_id': int, 'qty': float}]
+        byproducts: [{'product_id': int, 'qty': float}] o None
+        """
+        product = self.env['product.product'].browse(int(product_id))
+        if not product.exists():
+            raise UserError(_('Producto no encontrado'))
+
+        bom = self._find_bom(product)
+        if bom:
+            return {
+                'bom_id': bom.id,
+                'created': False,
+                'message': _('Ya existe una lista de materiales para este producto.'),
+            }
+
+        # Crear BOM nueva
+        bom_lines = []
+        for c in (components or []):
+            pid = int(c.get('product_id', 0))
+            cqty = float(c.get('qty', 0))
+            if pid and cqty > 0:
+                prod = self.env['product.product'].browse(pid)
+                bom_lines.append((0, 0, {
+                    'product_id': pid,
+                    'product_qty': cqty,
+                    'product_uom_id': prod.uom_id.id,
+                }))
+
+        bom_vals = {
+            'product_tmpl_id': product.product_tmpl_id.id,
+            'product_id': product.id,
+            'product_qty': float(qty) or 1.0,
+            'bom_line_ids': bom_lines,
+        }
+
+        # Subproductos
+        if byproducts:
+            bp_lines = []
+            for bp in byproducts:
+                bp_pid = int(bp.get('product_id', 0))
+                bp_qty = float(bp.get('qty', 0))
+                if bp_pid and bp_qty > 0:
+                    bp_prod = self.env['product.product'].browse(bp_pid)
+                    bp_lines.append((0, 0, {
+                        'product_id': bp_pid,
+                        'product_qty': bp_qty,
+                        'product_uom_id': bp_prod.uom_id.id,
+                    }))
+            if bp_lines:
+                bom_vals['byproduct_ids'] = bp_lines
+
+        bom = self.env['mrp.bom'].create(bom_vals)
+        return {
+            'bom_id': bom.id,
+            'created': True,
+            'message': _('Se creo una nueva lista de materiales para este producto.'),
+        }
+
+    # ─── Crear MO ──────────────────────────────────────────────────────────
     @api.model
     def create_mo(self, payload):
         try:
-            warehouse_id    = payload.get('warehouse_id')
-            product_id      = payload.get('product_id')
-            product_qty     = payload.get('product_qty', 1.0)
-            bom_id          = payload.get('bom_id')
-            components_map  = payload.get('components') or []
-            origin_ref      = payload.get('origin') or 'Simplified UI'
+            warehouse_id = payload.get('warehouse_id')
+            product_id = payload.get('product_id')
+            product_qty = payload.get('product_qty', 1.0)
+            bom_id = payload.get('bom_id')
+            components_map = payload.get('components') or []
+            byproducts_map = payload.get('byproducts') or []
+            origin_ref = payload.get('origin') or 'Simplified UI'
             custom_dest_loc = payload.get('location_dest_id')
-            manual_lot_name = payload.get('manual_lot_name') or None  # None → auto
+            manual_lot_name = payload.get('manual_lot_name') or None
+            auto_create_bom = payload.get('auto_create_bom', False)
 
-            # Limpiar componentes
             comps_clean = []
             for c in components_map:
                 if not c:
                     continue
-                pid       = int(c.get('product_id')) if c.get('product_id') else False
+                pid = int(c.get('product_id')) if c.get('product_id') else False
                 total_qty = float(c.get('qty', 0.0))
                 lots_data = c.get('selected_lots', [])
                 if pid and total_qty > 0:
                     comps_clean.append({'product_id': pid, 'qty': total_qty, 'lots': lots_data})
-
-            self._logdbg("create_mo", f"wh={warehouse_id}", f"prod={product_id}",
-                         f"qty={product_qty}", f"manual_lot={manual_lot_name}")
 
             if not warehouse_id or not product_id:
                 raise UserError(_('Faltan datos obligatorios'))
             if not comps_clean:
                 raise UserError(_('Debes capturar al menos un ingrediente con cantidad mayor a cero.'))
 
-            wh      = self.env['stock.warehouse'].browse(int(warehouse_id))
+            wh = self.env['stock.warehouse'].browse(int(warehouse_id))
             product = self.env['product.product'].browse(int(product_id))
-            qty     = float(product_qty)
+            qty = float(product_qty)
             if not wh.exists():
-                raise UserError(_('Almacén inválido'))
+                raise UserError(_('Almacen invalido'))
             if not product.exists():
-                raise UserError(_('Producto inválido'))
+                raise UserError(_('Producto invalido'))
 
             pt = self._find_picking_type(wh)
             if not pt:
-                raise UserError(_('No hay tipo de operación de fabricación configurado'))
+                raise UserError(_('No hay tipo de operacion de fabricacion configurado'))
 
+            # BOM handling
+            bom_message = ''
             if not bom_id:
-                bom    = self._find_bom(product)
-                bom_id = bom.id if bom else False
+                bom = self._find_bom(product)
+                if bom:
+                    bom_id = bom.id
+                    bom_message = 'bom_existing'
+                elif auto_create_bom:
+                    bom_comps = [{'product_id': c['product_id'], 'qty': c['qty']} for c in comps_clean]
+                    bom_bps = []
+                    for bp in byproducts_map:
+                        bp_pid = int(bp.get('product_id', 0))
+                        bp_qty = float(bp.get('qty', 0))
+                        if bp_pid and bp_qty > 0:
+                            bom_bps.append({'product_id': bp_pid, 'qty': bp_qty})
+                    bom_result = self.create_or_update_bom(product_id, bom_comps, bom_bps, qty)
+                    bom_id = bom_result['bom_id']
+                    bom_message = 'bom_created' if bom_result['created'] else 'bom_existing'
 
             mo_vals = {
-                'product_id':     product.id,
-                'product_qty':    qty,
+                'product_id': product.id,
+                'product_qty': qty,
                 'product_uom_id': product.uom_id.id,
-                'bom_id':         bom_id or False,
-                'picking_type_id':pt.id,
-                'origin':         origin_ref,
+                'bom_id': bom_id or False,
+                'picking_type_id': pt.id,
+                'origin': origin_ref,
             }
             if custom_dest_loc:
                 mo_vals['location_dest_id'] = int(custom_dest_loc)
 
             mo = self.env['mrp.production'].create(mo_vals)
-            self._logdbg("MO creado", mo.id, mo.name)
 
-            # ============== LOTE PRODUCTO TERMINADO ==============
+            # ─── Lote producto terminado ───────────────────────────────
             finished_lot = None
             if product.tracking in ['lot', 'serial']:
                 Lot = self.env['stock.lot']
-
                 if manual_lot_name:
-                    # --- Lote manual: validar patrón y unicidad ---
                     lot_name = manual_lot_name.strip().upper()
                     if not LOT_PATTERN.match(lot_name):
                         raise UserError(_(
-                            'El lote "%(n)s" no cumple el patrón XX-##-##-##-##.', n=lot_name
+                            'El lote "%(n)s" no cumple el patron XX-##-##-##-##.', n=lot_name
                         ))
                     if Lot.search([
                         ('name', '=', lot_name),
@@ -317,9 +381,8 @@ class AqSimplifiedMrpApi(models.TransientModel):
                         'company_id': mo.company_id.id,
                     })
                 else:
-                    # --- Lote automático (comportamiento original) ---
                     date_str = datetime.now().strftime('%Y%m%d')
-                    ref      = product.default_code or 'PROD'
+                    ref = product.default_code or 'PROD'
                     existing = Lot.search([
                         ('product_id', '=', product.id),
                         ('company_id', '=', mo.company_id.id),
@@ -336,18 +399,17 @@ class AqSimplifiedMrpApi(models.TransientModel):
                         'product_id': product.id,
                         'company_id': mo.company_id.id,
                     })
-
                 mo.lot_producing_id = finished_lot.id
 
             mo.action_confirm()
             mo.user_id = self.env.uid
 
-            # ============== COMPONENTES Y LOTES ==============
+            # ─── Componentes y lotes ───────────────────────────────────
             existing_by_pid = {m.product_id.id: m for m in mo.move_raw_ids}
 
             for item in comps_clean:
-                pid              = item['product_id']
-                req_qty_total    = item['qty']
+                pid = item['product_id']
+                req_qty_total = item['qty']
                 lots_distribution = item['lots']
                 prod = self.env['product.product'].browse(pid)
                 move = existing_by_pid.get(pid)
@@ -356,14 +418,14 @@ class AqSimplifiedMrpApi(models.TransientModel):
                     move.product_uom_qty = req_qty_total
                 else:
                     move = self.env['stock.move'].create({
-                        'name':                    prod.display_name,
-                        'product_id':              pid,
-                        'product_uom_qty':         req_qty_total,
-                        'product_uom':             prod.uom_id.id,
+                        'name': prod.display_name,
+                        'product_id': pid,
+                        'product_uom_qty': req_qty_total,
+                        'product_uom': prod.uom_id.id,
                         'raw_material_production_id': mo.id,
-                        'company_id':              mo.company_id.id,
-                        'location_id':             mo.location_src_id.id,
-                        'location_dest_id':        mo.location_dest_id.id,
+                        'company_id': mo.company_id.id,
+                        'location_id': mo.location_src_id.id,
+                        'location_dest_id': mo.location_dest_id.id,
                     })
                     existing_by_pid[pid] = move
 
@@ -372,28 +434,28 @@ class AqSimplifiedMrpApi(models.TransientModel):
 
                 if not lots_distribution:
                     self.env['stock.move.line'].create({
-                        'move_id':        move.id,
-                        'product_id':     pid,
+                        'move_id': move.id,
+                        'product_id': pid,
                         'product_uom_id': prod.uom_id.id,
-                        'location_id':    move.location_id.id,
+                        'location_id': move.location_id.id,
                         'location_dest_id': move.location_dest_id.id,
-                        'quantity':       req_qty_total,
+                        'quantity': req_qty_total,
                     })
                 else:
                     for l_data in lots_distribution:
-                        l_id  = l_data.get('lot_id')
+                        l_id = l_data.get('lot_id')
                         l_qty = float(l_data.get('qty', 0.0))
                         if l_qty <= 0:
                             continue
                         real_lot_id = l_id if (l_id and l_id != -1) else False
                         self.env['stock.move.line'].create({
-                            'move_id':        move.id,
-                            'product_id':     pid,
+                            'move_id': move.id,
+                            'product_id': pid,
                             'product_uom_id': prod.uom_id.id,
-                            'location_id':    move.location_id.id,
+                            'location_id': move.location_id.id,
                             'location_dest_id': move.location_dest_id.id,
-                            'lot_id':         real_lot_id,
-                            'quantity':       l_qty,
+                            'lot_id': real_lot_id,
+                            'quantity': l_qty,
                         })
 
             try:
@@ -401,7 +463,7 @@ class AqSimplifiedMrpApi(models.TransientModel):
             except Exception as e:
                 _logger.warning("Auto assign warning: %s", e)
 
-            # ============== COMPLETAR MO ==============
+            # ─── Completar MO ─────────────────────────────────────────
             if mo.move_finished_ids:
                 finished_move = mo.move_finished_ids[0]
                 if finished_move.move_line_ids:
@@ -411,22 +473,21 @@ class AqSimplifiedMrpApi(models.TransientModel):
                         ml.quantity = qty
                 else:
                     self.env['stock.move.line'].create({
-                        'move_id':        finished_move.id,
-                        'product_id':     product.id,
+                        'move_id': finished_move.id,
+                        'product_id': product.id,
                         'product_uom_id': product.uom_id.id,
-                        'location_id':    mo.location_src_id.id,
+                        'location_id': mo.location_src_id.id,
                         'location_dest_id': mo.location_dest_id.id,
-                        'lot_id':         finished_lot.id if finished_lot else False,
-                        'quantity':       qty,
+                        'lot_id': finished_lot.id if finished_lot else False,
+                        'quantity': qty,
                     })
 
             try:
                 mo.action_toggle_is_locked()
                 mo.is_locked = False
                 mo.button_mark_done()
-                self._logdbg("MO hecha", mo.state)
             except Exception as complete_error:
-                self._logdbg("Fallback al completar MO", complete_error)
+                _logger.warning("Fallback al completar MO: %s", complete_error)
                 try:
                     for move in mo.move_raw_ids:
                         if move.state not in ['done', 'cancel']:
@@ -439,73 +500,76 @@ class AqSimplifiedMrpApi(models.TransientModel):
                 except Exception as fb_err:
                     _logger.error("Fallback failed: %s", fb_err)
 
-            self._toast(_("MO creada: %(n)s", n=mo.name), level='success')
-            return {'mo_id': mo.id, 'name': mo.name, 'state': mo.state}
+            # Marcar sesion como confirmada
+            try:
+                self.env['simplified.mrp.session'].mark_confirmed(mo.id)
+            except Exception:
+                pass
+
+            return {
+                'mo_id': mo.id,
+                'name': mo.name,
+                'state': mo.state,
+                'bom_message': bom_message,
+            }
 
         except Exception as e:
             _logger.error("Error creating MO: %s", e, exc_info=True)
-            self._toast(_("Error creando OP: %s") % e, level='warning', sticky=True)
-            raise UserError(_('Error creando orden de producción: %s') % e)
+            raise UserError(_('Error creando orden de produccion: %s') % e)
 
-    # ---------- List & Detail ----------
+    # ─── List & Detail ─────────────────────────────────────────────────────
     @api.model
     def get_my_productions(self, limit=50):
-        try:
-            mos = self.env['mrp.production'].search(
-                [('user_id', '=', self.env.uid)],
-                limit=int(limit), order='date_start desc, id desc',
-            )
-            return [{
-                'id':           mo.id,
-                'name':         mo.name,
-                'state':        mo.state,
-                'product_id':   mo.product_id.id,
-                'product_name': mo.product_id.display_name,
-                'product_qty':  mo.product_qty,
-                'uom_name':     mo.product_uom_id.name,
-                'date_start':   mo.date_start.isoformat() if mo.date_start else False,
-                'date_finished':mo.date_finished.isoformat() if mo.date_finished else False,
-            } for mo in mos]
-        except Exception as e:
-            raise UserError(_('Error obteniendo mis órdenes: %s') % e)
+        mos = self.env['mrp.production'].search(
+            [('user_id', '=', self.env.uid)],
+            limit=int(limit), order='date_start desc, id desc',
+        )
+        return [{
+            'id': mo.id,
+            'name': mo.name,
+            'state': mo.state,
+            'product_id': mo.product_id.id,
+            'product_name': mo.product_id.display_name,
+            'product_qty': mo.product_qty,
+            'uom_name': mo.product_uom_id.name,
+            'date_start': mo.date_start.isoformat() if mo.date_start else False,
+            'date_finished': mo.date_finished.isoformat() if mo.date_finished else False,
+        } for mo in mos]
 
     @api.model
     def get_production_detail(self, mo_id):
-        try:
-            mo = self.env['mrp.production'].browse(int(mo_id))
-            if not mo.exists():
-                raise UserError(_('Orden no encontrada'))
-            if mo.user_id.id != self.env.uid:
-                raise UserError(_('No tienes permiso para ver esta orden'))
-            components = []
-            for move in mo.move_raw_ids:
-                lots_info = []
-                qty_done  = 0.0
-                for ml in move.move_line_ids:
-                    qty_done += ml.quantity
-                    lname = ml.lot_id.name if ml.lot_id else 'General'
-                    lots_info.append(f"{lname} ({ml.quantity})")
-                components.append({
-                    'product_name': move.product_id.display_name,
-                    'qty_required': move.product_uom_qty,
-                    'qty_done':     qty_done,
-                    'uom_name':     move.product_uom.name,
-                    'lot_name':     ", ".join(lots_info) if lots_info else "Sin consumo",
-                })
-            finished_lot = False
-            if mo.move_finished_ids and mo.move_finished_ids[0].move_line_ids:
-                finished_lot = mo.move_finished_ids[0].move_line_ids[0].lot_id.display_name or False
-            return {
-                'name':          mo.name,
-                'state':         mo.state,
-                'origin':        mo.origin,
-                'product_name':  mo.product_id.display_name,
-                'product_qty':   mo.product_qty,
-                'uom_name':      mo.product_uom_id.name,
-                'date_start':    mo.date_start.isoformat() if mo.date_start else False,
-                'date_finished': mo.date_finished.isoformat() if mo.date_finished else False,
-                'finished_lot':  finished_lot or 'Sin lote',
-                'components':    components,
-            }
-        except Exception as e:
-            raise UserError(_('Error obteniendo detalle: %s') % e)
+        mo = self.env['mrp.production'].browse(int(mo_id))
+        if not mo.exists():
+            raise UserError(_('Orden no encontrada'))
+        if mo.user_id.id != self.env.uid:
+            raise UserError(_('No tienes permiso para ver esta orden'))
+        components = []
+        for move in mo.move_raw_ids:
+            lots_info = []
+            qty_done = 0.0
+            for ml in move.move_line_ids:
+                qty_done += ml.quantity
+                lname = ml.lot_id.name if ml.lot_id else 'General'
+                lots_info.append(f"{lname} ({ml.quantity})")
+            components.append({
+                'product_name': move.product_id.display_name,
+                'qty_required': move.product_uom_qty,
+                'qty_done': qty_done,
+                'uom_name': move.product_uom.name,
+                'lot_name': ", ".join(lots_info) if lots_info else "Sin consumo",
+            })
+        finished_lot = False
+        if mo.move_finished_ids and mo.move_finished_ids[0].move_line_ids:
+            finished_lot = mo.move_finished_ids[0].move_line_ids[0].lot_id.display_name or False
+        return {
+            'name': mo.name,
+            'state': mo.state,
+            'origin': mo.origin,
+            'product_name': mo.product_id.display_name,
+            'product_qty': mo.product_qty,
+            'uom_name': mo.product_uom_id.name,
+            'date_start': mo.date_start.isoformat() if mo.date_start else False,
+            'date_finished': mo.date_finished.isoformat() if mo.date_finished else False,
+            'finished_lot': finished_lot or 'Sin lote',
+            'components': components,
+        }
