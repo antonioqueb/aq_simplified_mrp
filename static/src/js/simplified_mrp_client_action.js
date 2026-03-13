@@ -15,7 +15,6 @@ class SimplifiedMrp extends Component {
 
         this.state = useState({
             view: 'create',
-            // Steps: warehouse | product | lot_config | components | byproducts | lots | review | done
             step: 'warehouse',
 
             // Config
@@ -506,7 +505,6 @@ class SimplifiedMrp extends Component {
         const c = this.state.components[idx];
         if (c) {
             c.qty_real = this.toNum(ev.target.value);
-            // Force reactivity
             this.state.components = [...this.state.components];
         }
     }
@@ -591,7 +589,7 @@ class SimplifiedMrp extends Component {
     backToComponents() { this.state.step = 'components'; }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // STEP 4: LOTS
+    // STEP 4: LOTS — Distribution only (qty_real already defined)
     // ═══════════════════════════════════════════════════════════════════════
     async loadLotsForCurrent() {
         const comp = this.state.components[this.state.compIndex];
@@ -625,8 +623,45 @@ class SimplifiedMrp extends Component {
             .reduce((s, v) => s + this.toNum(v), 0);
     }
 
+    getRemainingToAssign(productId) {
+        const comp = this.state.components.find(c => c.product_id === productId);
+        if (!comp) return 0;
+        const target = this.toNum(comp.qty_real);
+        const assigned = this.getAssignedTotal(productId);
+        return Math.max(0, target - assigned);
+    }
+
     getLotAssignedValue(productId, lotId) {
         return (this.state.assignedLots[productId] || {})[lotId] || 0;
+    }
+
+    /**
+     * Status class for the lot assignment progress bar area
+     */
+    getLotStatusClass(productId) {
+        const comp = this.state.components.find(c => c.product_id === productId);
+        if (!comp) return 'empty';
+        const target = this.toNum(comp.qty_real);
+        const assigned = this.getAssignedTotal(productId);
+        if (assigned === 0) return 'empty';
+        const diff = Math.abs(assigned - target);
+        const pct = target > 0 ? (diff / target) * 100 : 0;
+        if (pct <= this.state.toleranceGreen) return 'ok';
+        if (assigned < target) return 'partial';
+        return 'over';
+    }
+
+    getLotStatusMessage(productId) {
+        const comp = this.state.components.find(c => c.product_id === productId);
+        if (!comp) return '';
+        const target = this.toNum(comp.qty_real);
+        const assigned = this.getAssignedTotal(productId);
+        if (assigned === 0) return 'Sin asignar — distribuye la cantidad entre los lotes disponibles';
+        const diff = Math.abs(assigned - target);
+        const pct = target > 0 ? (diff / target) * 100 : 0;
+        if (pct <= this.state.toleranceGreen) return '✓ Cantidad completa asignada correctamente';
+        if (assigned < target) return `Faltan ${(target - assigned).toFixed(2)} por asignar`;
+        return `Exceso de ${(assigned - target).toFixed(2)} sobre lo requerido`;
     }
 
     updateLotAssignment(lotId, val) {
@@ -640,6 +675,27 @@ class SimplifiedMrp extends Component {
         else
             delete this.state.assignedLots[comp.product_id][lotId];
         this.state.assignedLots = { ...this.state.assignedLots };
+    }
+
+    /**
+     * Fill this lot with the remaining needed quantity (capped at available)
+     */
+    fillRemainingLot(lotId) {
+        const comp = this.state.components[this.state.compIndex];
+        if (!comp) return;
+        const remaining = this.getRemainingToAssign(comp.product_id);
+        const lot = this.state.lots.find(l => l.id === lotId);
+        if (!lot) return;
+        const currentlyAssigned = this.getLotAssignedValue(comp.product_id, lotId);
+        const maxAvail = lot.qty_available;
+        // Fill with the lesser of remaining or available, added to current
+        const fillQty = Math.min(remaining, maxAvail - currentlyAssigned);
+        if (fillQty <= 0 && remaining <= 0) {
+            this.notification.add('Ya se asigno la cantidad completa', { type: 'info' });
+            return;
+        }
+        const newVal = currentlyAssigned + Math.max(0, fillQty);
+        this.updateLotAssignment(lotId, newVal);
     }
 
     async nextLotStep() {

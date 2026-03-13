@@ -1,5 +1,5 @@
 /* ========================================================================
-   SMRP - Simplified MRP System v2.0
+   SMRP - Simplified MRP System v3.0
    Poka-Yoke, BOM, Subproductos, Persistencia, Resumen
    ======================================================================== */
 
@@ -27,19 +27,26 @@
   --smrp-fs-lg: 17px;
   --smrp-fs-xl: 22px;
 
-  /* Poka-Yoke semaphore */
-  --pk-green: #22c55e;
-  --pk-green-bg: #f0fdf4;
-  --pk-green-border: #86efac;
-  --pk-yellow: #eab308;
-  --pk-yellow-bg: #fefce8;
-  --pk-yellow-border: #fde047;
-  --pk-orange: #f97316;
-  --pk-orange-bg: #fff7ed;
-  --pk-orange-border: #fdba74;
-  --pk-red: #ef4444;
-  --pk-red-bg: #fef2f2;
-  --pk-red-border: #fca5a5;
+  /* Poka-Yoke semaphore — STRONG / HIGH CONTRAST */
+  --pk-green: #16a34a;
+  --pk-green-bg: #dcfce7;
+  --pk-green-border: #22c55e;
+  --pk-green-text: #052e16;
+
+  --pk-yellow: #ca8a04;
+  --pk-yellow-bg: #fef08a;
+  --pk-yellow-border: #eab308;
+  --pk-yellow-text: #422006;
+
+  --pk-orange: #ea580c;
+  --pk-orange-bg: #fed7aa;
+  --pk-orange-border: #f97316;
+  --pk-orange-text: #431407;
+
+  --pk-red: #dc2626;
+  --pk-red-bg: #fecaca;
+  --pk-red-border: #ef4444;
+  --pk-red-text: #450a0a;
 }
 
 /* ========================================================================
@@ -231,6 +238,38 @@ select.o_smrp_input {
   &--sm { height: 36px; padding: 0 12px; font-size: 13px; min-width: auto; }
   &--danger { background: var(--pk-red); border-color: var(--pk-red); color: #fff; }
   &.confirm { background: var(--smrp-brand-green); border-color: var(--smrp-brand-green); color: #062b10; }
+
+  /* ── Boton NEGRO para confirmar produccion final ── */
+  &--black {
+    background: #111827;
+    border-color: #111827;
+    color: #fff;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+
+    &:hover:not(:disabled) {
+      background: #1f2937;
+      border-color: #1f2937;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.4);
+    }
+
+    &:disabled {
+      background: #6b7280;
+      border-color: #6b7280;
+      opacity: 0.7;
+    }
+  }
+
+  /* Fill remaining lot button */
+  &--fill {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #fff;
+    font-size: 12px;
+    height: 32px;
+    padding: 0 10px;
+  }
 }
 
 /* ========================================================================
@@ -344,32 +383,51 @@ select.o_smrp_input {
 .o_smrp_meta { font-size: 14px; color: #6b7996; strong { font-weight: 600; color: var(--smrp-ink); } }
 
 /* ========================================================================
-   POKA-YOKE COMPONENT ROWS
+   POKA-YOKE COMPONENT TABLE — ALIGNED GRID
    ======================================================================== */
+$comp-cols: 1fr 110px 130px 1fr 110px;
+
 .o_smrp_comp_table {
   display: grid; gap: 10px;
 }
 
+.o_smrp_comp_header {
+  display: grid;
+  grid-template-columns: $comp-cols;
+  gap: 10px;
+  padding: 0 16px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #6b7996;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+
+  > div { white-space: nowrap; }
+  > div:nth-child(2),
+  > div:nth-child(3) { text-align: center; }
+}
+
 .o_smrp_comp_row {
   display: grid;
-  grid-template-columns: 1fr 100px 120px 120px auto;
+  grid-template-columns: $comp-cols;
   gap: 10px;
   align-items: center;
   padding: 14px 16px;
   background: #fff;
   border-radius: var(--smrp-radius);
-  border: 2px solid #e2e8f0;
+  border-left: 5px solid #e2e8f0;
   box-shadow: var(--smrp-shadow);
   transition: all 0.2s ease;
 
-  &--green  { border-color: var(--pk-green-border); background: var(--pk-green-bg); }
-  &--yellow { border-color: var(--pk-yellow-border); background: var(--pk-yellow-bg); }
-  &--orange { border-color: var(--pk-orange-border); background: var(--pk-orange-bg); }
-  &--red    { border-color: var(--pk-red-border); background: var(--pk-red-bg); }
+  &--green  { border-left-color: var(--pk-green); background: var(--pk-green-bg); }
+  &--yellow { border-left-color: var(--pk-yellow); background: var(--pk-yellow-bg); }
+  &--orange { border-left-color: var(--pk-orange); background: var(--pk-orange-bg); }
+  &--red    { border-left-color: var(--pk-red); background: var(--pk-red-bg); }
 }
 
 .o_smrp_comp_name {
   font-weight: 700; font-size: 15px;
+  overflow: hidden; text-overflow: ellipsis;
   .uom { font-weight: 400; color: #6b7996; font-size: 13px; }
 }
 
@@ -386,6 +444,7 @@ select.o_smrp_input {
   font-weight: 800;
   text-align: center;
   width: 100%;
+  box-sizing: border-box;
   color: var(--smrp-brand-blue);
   background: #fff;
   transition: all 0.2s;
@@ -399,33 +458,20 @@ select.o_smrp_input {
 
 .o_smrp_comp_status {
   display: flex; align-items: center; gap: 6px;
-  font-size: 13px; font-weight: 600;
+  font-size: 13px; font-weight: 700;
   min-width: 0;
 
   .icon { font-size: 20px; flex-shrink: 0; }
   .msg { line-height: 1.3; }
 
-  &--green  { color: #15803d; }
-  &--yellow { color: #a16207; }
-  &--orange { color: #c2410c; }
-  &--red    { color: #dc2626; }
+  &--green  { color: var(--pk-green-text); }
+  &--yellow { color: var(--pk-yellow-text); }
+  &--orange { color: var(--pk-orange-text); }
+  &--red    { color: var(--pk-red-text); }
 }
 
 .o_smrp_comp_actions {
-  display: flex; gap: 4px;
-}
-
-/* Header labels for table */
-.o_smrp_comp_header {
-  display: grid;
-  grid-template-columns: 1fr 100px 120px 120px auto;
-  gap: 10px;
-  padding: 0 16px 8px;
-  font-size: 12px;
-  font-weight: 700;
-  color: #6b7996;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  display: flex; gap: 4px; justify-content: flex-end;
 }
 
 /* BOM badge */
@@ -479,12 +525,66 @@ select.o_smrp_input {
   box-shadow: 0 0 10px rgba(62,242,78,0.5);
 }
 
+/* Lot target banner */
+.o_smrp_lot_target {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #1e40af, #2563eb);
+  border-radius: 12px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 12px rgba(37,99,235,0.3);
+
+  .target-label { opacity: 0.85; }
+  .target-value { font-size: 22px; font-weight: 900; letter-spacing: 0.02em; }
+  .target-uom { opacity: 0.85; font-size: 14px; }
+}
+
+/* Lot status bar */
+.o_smrp_lot_status_bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 8px;
+
+  &--ok {
+    background: var(--pk-green-bg);
+    border: 2px solid var(--pk-green-border);
+    color: var(--pk-green-text);
+  }
+  &--partial {
+    background: var(--pk-yellow-bg);
+    border: 2px solid var(--pk-yellow-border);
+    color: var(--pk-yellow-text);
+  }
+  &--over {
+    background: var(--pk-orange-bg);
+    border: 2px solid var(--pk-orange-border);
+    color: var(--pk-orange-text);
+  }
+  &--empty {
+    background: #f1f5f9;
+    border: 2px solid #cbd5e1;
+    color: #475569;
+  }
+}
+
 /* ========================================================================
    LOTS GRID
    ======================================================================== */
 .o_smrp_lots {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 12px; padding: 4px; margin-bottom: 16px;
 }
 
@@ -501,8 +601,9 @@ select.o_smrp_input {
     .name { font-weight: 700; font-size: 15px; word-break: break-all; }
     .avail { font-size: 12px; color: #444; background: #eef1ff; padding: 3px 8px; border-radius: 99px; white-space: nowrap; flex-shrink: 0; margin-left: 8px; }
   }
-  .input-area { display: flex; align-items: center; gap: 8px; margin-top: auto;
-    label { font-size: 13px; font-weight: 600; color: #666; }
+  .lot-actions {
+    display: flex; align-items: center; gap: 8px; margin-top: auto;
+    label { font-size: 13px; font-weight: 600; color: #666; white-space: nowrap; }
   }
 }
 
@@ -523,8 +624,10 @@ select.o_smrp_input {
 }
 
 /* ========================================================================
-   REVIEW / SUMMARY
+   REVIEW / SUMMARY — ALIGNED TABLE
    ======================================================================== */
+$review-cols: 1fr 100px 100px 100px 1fr;
+
 .o_smrp_review_grid { display: grid; gap: 14px; }
 
 .o_smrp_review_card {
@@ -536,52 +639,70 @@ select.o_smrp_input {
   .value { font-size: 17px; font-weight: 700; color: var(--smrp-ink); }
 }
 
+/* Alerts — STRONG colors */
 .o_smrp_review_alerts {
   padding: 16px; border-radius: var(--smrp-radius);
   margin-bottom: 12px;
 
-  &--red    { background: var(--pk-red-bg); border: 2px solid var(--pk-red-border); }
-  &--orange { background: var(--pk-orange-bg); border: 2px solid var(--pk-orange-border); }
-  &--yellow { background: var(--pk-yellow-bg); border: 2px solid var(--pk-yellow-border); }
-  &--clean  { background: var(--pk-green-bg); border: 2px solid var(--pk-green-border); }
+  &--red    { background: var(--pk-red-bg); border: 3px solid var(--pk-red); color: var(--pk-red-text); }
+  &--orange { background: var(--pk-orange-bg); border: 3px solid var(--pk-orange); color: var(--pk-orange-text); }
+  &--yellow { background: var(--pk-yellow-bg); border: 3px solid var(--pk-yellow); color: var(--pk-yellow-text); }
+  &--clean  { background: var(--pk-green-bg); border: 3px solid var(--pk-green); color: var(--pk-green-text); }
 }
 
 .o_smrp_review_alert_title {
-  font-size: 16px; font-weight: 700; margin-bottom: 8px;
+  font-size: 16px; font-weight: 800; margin-bottom: 8px;
   display: flex; align-items: center; gap: 8px;
 }
 
 .o_smrp_review_alert_item {
   padding: 8px 12px; margin: 4px 0;
-  border-radius: 8px; background: rgba(255,255,255,0.7);
+  border-radius: 8px; background: rgba(255,255,255,0.8);
   font-size: 14px; display: flex; align-items: center; gap: 8px;
 
   .icon { font-size: 18px; }
-  .name { font-weight: 700; }
-  .msg  { color: #555; }
+  .name { font-weight: 800; }
+  .msg  { color: #333; font-weight: 500; }
 }
 
 .o_smrp_review_comp_summary {
-  display: grid; gap: 8px;
+  display: grid; gap: 6px;
+}
+
+.o_smrp_review_comp_header {
+  display: grid;
+  grid-template-columns: $review-cols;
+  gap: 8px;
+  padding: 10px 14px;
+  font-weight: 800;
+  font-size: 12px;
+  color: #6b7996;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 2px solid #e2e8f0;
+
+  > div:nth-child(2),
+  > div:nth-child(3),
+  > div:nth-child(4) { text-align: center; }
 }
 
 .o_smrp_review_comp_line {
   display: grid;
-  grid-template-columns: 1fr 80px 80px 80px auto;
+  grid-template-columns: $review-cols;
   gap: 8px; align-items: center;
   padding: 10px 14px;
   background: #fff; border-radius: 10px;
-  border: 1px solid #e2e8f0;
+  border-left: 4px solid #e2e8f0;
   font-size: 14px;
 
   .name { font-weight: 700; }
   .num { text-align: center; font-weight: 600; }
-  .diff { text-align: center; font-weight: 700; font-size: 13px; }
+  .diff { text-align: center; font-weight: 800; font-size: 13px; }
 
-  &--green  .diff { color: var(--pk-green); }
-  &--yellow .diff { color: var(--pk-yellow); }
-  &--orange .diff { color: var(--pk-orange); }
-  &--red    .diff { color: var(--pk-red); }
+  &--green  { border-left-color: var(--pk-green); .diff { color: var(--pk-green); } }
+  &--yellow { border-left-color: var(--pk-yellow); .diff { color: var(--pk-yellow); } }
+  &--orange { border-left-color: var(--pk-orange); .diff { color: var(--pk-orange); } }
+  &--red    { border-left-color: var(--pk-red); .diff { color: var(--pk-red); } }
 }
 
 /* ========================================================================
@@ -800,6 +921,7 @@ select.o_smrp_input {
   }
   .o_smrp_comp_row { grid-template-columns: 1fr; gap: 6px; }
   .o_smrp_comp_header { display: none; }
+  .o_smrp_review_comp_header { display: none; }
   .o_smrp_review_comp_line { grid-template-columns: 1fr; gap: 4px; }
   .o_smrp_lot_config_card { padding: 18px; gap: 18px; }
   .o_smrp_lot_builder { gap: 6px; }

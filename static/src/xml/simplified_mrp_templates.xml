@@ -234,11 +234,11 @@
                 </t>
               </div>
 
-              <!-- Table header -->
+              <!-- Table header — ALIGNED -->
               <div class="o_smrp_comp_header">
                 <div>Ingrediente</div>
-                <div style="text-align:center;">Formula</div>
-                <div style="text-align:center;">Real</div>
+                <div>Formula</div>
+                <div>Real</div>
                 <div>Estado</div>
                 <div></div>
               </div>
@@ -351,17 +351,26 @@
             </div>
           </t>
 
-          <!-- ══════════ PASO LOTS ══════════ -->
+          <!-- ══════════ PASO LOTS — Solo distribuir, NO re-capturar cantidad ══════════ -->
           <t t-if="state.step === 'lots'">
             <div class="o_smrp_container o_smrp_section">
-              <h2>Seleccion de Lotes</h2>
+              <h2>Distribucion de Lotes</h2>
               <t t-if="state.components.length">
                 <div class="o_smrp_wizard">
                   <t t-set="c" t-value="state.components[state.compIndex]"/>
                   <div class="o_smrp_counter">Ingrediente <t t-esc="state.compIndex + 1"/> de <t t-esc="state.components.length"/></div>
+
                   <div class="o_smrp_box o_smrp_box--big">
+                    <!-- Target banner: shows the qty_real from components step -->
+                    <div class="o_smrp_lot_target">
+                      <span class="target-label">Distribuir:</span>
+                      <span class="target-value"><t t-esc="(c.qty_real || 0).toFixed(2)"/></span>
+                      <span class="target-uom"><t t-esc="c.uom_name"/> de <strong><t t-esc="c.name"/></strong></span>
+                    </div>
+
+                    <!-- Progress -->
                     <div class="o_smrp_header_flex">
-                      <div class="o_smrp_name"><t t-esc="c.name"/></div>
+                      <div class="o_smrp_name" style="font-size:14px;"><t t-esc="c.name"/></div>
                       <div class="o_smrp_progress_text">
                         <t t-set="assigned" t-value="this.getAssignedTotal(c.product_id)"/>
                         Asignado: <strong><t t-esc="assigned.toFixed(2)"/></strong> / <t t-esc="(c.qty_real || 0).toFixed(2)"/> <t t-esc="c.uom_name"/>
@@ -372,6 +381,12 @@
                       <div class="o_smrp_progress_fill"
                            t-att-style="'width:' + Math.min((assigned / (c.qty_real || 1))*100, 100) + '%'"/>
                     </div>
+
+                    <!-- Status bar with Poka-Yoke feedback -->
+                    <div class="o_smrp_lot_status_bar" t-att-class="'o_smrp_lot_status_bar--' + this.getLotStatusClass(c.product_id)">
+                      <span><t t-esc="this.getLotStatusMessage(c.product_id)"/></span>
+                    </div>
+
                     <div class="o_smrp_lot_search">
                       <input class="o_smrp_input" type="text" placeholder="Buscar lote..."
                              t-model="state.lotQuery" t-on-input="() => this.searchLots()"/>
@@ -383,11 +398,13 @@
                             <div class="name"><t t-esc="l.name"/></div>
                             <div class="avail">Disp: <t t-esc="l.qty_available"/></div>
                           </div>
-                          <div class="input-area">
+                          <div class="lot-actions">
                             <label>Usar:</label>
                             <input type="number" min="0" step="0.001" class="o_smrp_input_small"
                                    t-att-value="this.getLotAssignedValue(c.product_id, l.id)"
                                    t-on-change="(ev) => this.updateLotAssignment(l.id, ev.target.value)"/>
+                            <button class="o_smrp_btn o_smrp_btn--fill" title="Llenar con lo que falta"
+                                    t-on-click="() => this.fillRemainingLot(l.id)">Restante</button>
                           </div>
                         </div>
                       </t>
@@ -411,7 +428,7 @@
             </div>
           </t>
 
-          <!-- ══════════ PASO REVIEW (RESUMEN) ══════════ -->
+          <!-- ══════════ PASO REVIEW (RESUMEN) — ALIGNED TABLE ══════════ -->
           <t t-if="state.step === 'review'">
             <div class="o_smrp_container o_smrp_section">
               <h2>Resumen de Produccion</h2>
@@ -419,7 +436,7 @@
               <!-- Alerts summary -->
               <t t-if="this.hasRedWarnings">
                 <div class="o_smrp_review_alerts o_smrp_review_alerts--red">
-                  <div class="o_smrp_review_alert_title" style="color: var(--pk-red);">
+                  <div class="o_smrp_review_alert_title">
                     ⛔ Desviaciones criticas detectadas (<t t-esc="this.reviewRedCount"/>)
                   </div>
                   <t t-foreach="state.reviewWarnings.filter(w => w.level === 'red')" t-as="rw" t-key="rw.product_id">
@@ -433,7 +450,7 @@
               </t>
               <t t-if="this.hasOrangeWarnings">
                 <div class="o_smrp_review_alerts o_smrp_review_alerts--orange">
-                  <div class="o_smrp_review_alert_title" style="color: var(--pk-orange);">
+                  <div class="o_smrp_review_alert_title">
                     ⚠ Desviaciones importantes (<t t-esc="this.reviewOrangeCount"/>)
                   </div>
                   <t t-foreach="state.reviewWarnings.filter(w => w.level === 'orange')" t-as="ow" t-key="ow.product_id">
@@ -447,14 +464,14 @@
               </t>
               <t t-if="this.reviewYellowCount > 0">
                 <div class="o_smrp_review_alerts o_smrp_review_alerts--yellow">
-                  <div class="o_smrp_review_alert_title" style="color: var(--pk-yellow);">
+                  <div class="o_smrp_review_alert_title">
                     ⚠ Desviaciones leves (<t t-esc="this.reviewYellowCount"/>)
                   </div>
                 </div>
               </t>
               <t t-if="!state.reviewWarnings.length">
                 <div class="o_smrp_review_alerts o_smrp_review_alerts--clean">
-                  <div class="o_smrp_review_alert_title" style="color: var(--pk-green);">
+                  <div class="o_smrp_review_alert_title">
                     ✓ Sin desviaciones — todo dentro de tolerancia
                   </div>
                 </div>
@@ -483,12 +500,17 @@
                 </div>
               </div>
 
-              <!-- Components summary with Poka-Yoke -->
+              <!-- Components summary — ALIGNED TABLE with header -->
               <div class="o_smrp_box" style="margin-top:14px;">
                 <div class="o_smrp_name">Ingredientes</div>
                 <div class="o_smrp_review_comp_summary">
-                  <div class="o_smrp_review_comp_line" style="font-weight:700; font-size:12px; color:#6b7996; text-transform:uppercase;">
-                    <div>Ingrediente</div><div class="num">Formula</div><div class="num">Real</div><div class="num">Diferencia</div><div>Estado</div>
+                  <!-- Proper header row -->
+                  <div class="o_smrp_review_comp_header">
+                    <div>Ingrediente</div>
+                    <div>Formula</div>
+                    <div>Real</div>
+                    <div>Diferencia</div>
+                    <div>Estado</div>
                   </div>
                   <t t-foreach="state.components" t-as="comp" t-key="comp.product_id">
                     <t t-set="w" t-value="this.getComponentWarning(comp)"/>
@@ -519,21 +541,21 @@
                 </div>
               </t>
 
-              <!-- Actions -->
+              <!-- Actions — BLACK CONFIRM BUTTON -->
               <div class="o_smrp_actions o_smrp_actions--sticky">
                 <button class="o_smrp_btn o_smrp_btn--ghost o_smrp_btn--xl" t-on-click="() => this.backToComponentsFromReview()">← Editar ingredientes</button>
                 <button class="o_smrp_btn o_smrp_btn--ghost o_smrp_btn--xl" t-on-click="() => this.backToLots()">← Editar lotes</button>
-                <button class="o_smrp_btn confirm o_smrp_btn--xl"
+                <button class="o_smrp_btn o_smrp_btn--black o_smrp_btn--xl"
                         t-att-disabled="state.submitting || (this.hasRedWarnings &amp;&amp; !state.allowConfirmRed)"
                         t-on-click="() => this.createMO()">
                   <t t-if="state.submitting">Creando...</t>
                   <t t-elif="this.hasRedWarnings">⛔ Confirmar con alertas</t>
-                  <t t-else="">✓ Confirmar produccion</t>
+                  <t t-else="">✓ CONFIRMAR PRODUCCION</t>
                 </button>
               </div>
 
               <t t-if="this.hasRedWarnings and state.allowConfirmRed">
-                <div style="text-align:center; margin-top:8px; font-size:13px; color: var(--pk-red); font-weight:600;">
+                <div style="text-align:center; margin-top:8px; font-size:13px; color: var(--pk-red); font-weight:700;">
                   Detectamos desviaciones criticas. Revisa antes de continuar. Si estas seguro, puedes confirmar.
                 </div>
               </t>
