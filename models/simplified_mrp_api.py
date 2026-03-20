@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from odoo import api, fields, models, _
-from odoo.exceptions import UserError
+from odoo.exceptions import UserError, ValidationError
 import logging
 from datetime import datetime
 import re
@@ -62,6 +62,93 @@ class AqSimplifiedMrpApi(models.TransientModel):
                 ('code', 'in', ['mrp_operation', 'manufacture', 'mrp_manufacture']),
             ], limit=1)
         return pt
+
+    @api.model
+    def _product_uom_category_ok(self, product, uom):
+        return bool(product.uom_id and uom and product.uom_id.category_id.id == uom.category_id.id)
+
+    @api.model
+    def _validate_no_direct_cycle(self, finished_product, components, byproducts=None):
+        """
+        Evita el caso directo más común:
+        - producto terminado incluido como componente
+        - producto terminado incluido como subproducto
+        """
+        finished_id = finished_product.id
+
+        component_ids = {
+            int(c.get('product_id', 0))
+            for c in (components or [])
+            if c.get('product_id')
+        }
+        byproduct_ids = {
+            int(bp.get('product_id', 0))
+            for bp in (byproducts or [])
+            if bp.get('product_id')
+        }
+
+        if finished_id in component_ids:
+            raise UserError(_(
+                'Configuracion invalida: el producto terminado "%s" no puede estar incluido '
+                'como ingrediente de su propia lista de materiales.'
+            ) % finished_product.display_name)
+
+        if finished_id in byproduct_ids:
+            raise UserError(_(
+                'Configuracion invalida: el producto terminado "%s" no puede estar incluido '
+                'como subproducto de su propia lista de materiales.'
+            ) % finished_product.display_name)
+
+    @api.model
+    def _validate_bom_component_data(self, components):
+        """
+        Fuerza el uso de la UoM nativa del producto componente y valida datos base.
+        """
+        cleaned = []
+        for c in (components or []):
+            pid = int(c.get('product_id', 0))
+            cqty = float(c.get('qty', 0.0))
+            if not pid or cqty <= 0:
+                continue
+
+            prod = self.env['product.product'].browse(pid)
+            if not prod.exists():
+                raise UserError(_('Ingrediente invalido: producto no encontrado (ID %s).') % pid)
+
+            if not prod.uom_id:
+                raise UserError(_('El ingrediente "%s" no tiene unidad de medida definida.') % prod.display_name)
+
+            cleaned.append({
+                'product': prod,
+                'product_id': prod.id,
+                'qty': cqty,
+                'uom_id': prod.uom_id.id,
+            })
+        return cleaned
+
+    @api.model
+    def _validate_bom_byproduct_data(self, byproducts):
+        cleaned = []
+        for bp in (byproducts or []):
+            bp_pid = int(bp.get('product_id', 0))
+            bp_qty = float(bp.get('qty', 0.0))
+            if not bp_pid or bp_qty <= 0:
+                continue
+
+            bp_prod = self.env['product.product'].browse(bp_pid)
+            if not bp_prod.exists():
+                raise UserError(_('Subproducto invalido: producto no encontrado (ID %s).') % bp_pid)
+
+            if not bp_prod.uom_id:
+                raise UserError(_('El subproducto "%s" no tiene unidad de medida definida.') % bp_prod.display_name)
+
+            cleaned.append({
+                'product': bp_prod,
+                'product_id': bp_prod.id,
+                'qty': bp_qty,
+                'uom_id': bp_prod.uom_id.id,
+            })
+        return cleaned
 
     # ─── Data sources ──────────────────────────────────────────────────────
     @api.model
@@ -227,12 +314,15 @@ class AqSimplifiedMrpApi(models.TransientModel):
     def create_or_update_bom(self, product_id, components, byproducts=None, qty=1.0):
         """
         Crea BOM si no existe, o devuelve la existente.
-        components: [{'product_id': int, 'qty': float}]
-        byproducts: [{'product_id': int, 'qty': float}] o None
+        SIEMPRE usa la UoM del producto componente/subproducto.
+        Nunca usa UoM capturada desde frontend.
         """
         product = self.env['product.product'].browse(int(product_id))
         if not product.exists():
             raise UserError(_('Producto no encontrado'))
+
+        if not product.uom_id:
+            raise UserError(_('El producto terminado "%s" no tiene unidad de medida definida.') % product.display_name)
 
         bom = self._find_bom(product)
         if bom:
@@ -242,18 +332,24 @@ class AqSimplifiedMrpApi(models.TransientModel):
                 'message': _('Ya existe una lista de materiales para este producto.'),
             }
 
-        # Crear BOM nueva
+        # Validaciones previas
+        self._validate_no_direct_cycle(product, components, byproducts)
+        cleaned_components = self._validate_bom_component_data(components)
+        cleaned_byproducts = self._validate_bom_byproduct_data(byproducts)
+
+        if not cleaned_components:
+            raise UserError(_('No se puede crear la lista de materiales sin ingredientes validos.'))
+
+        # Crear BOM con sudo para evitar error de permisos en mrp.bom.line
+        Bom = self.env['mrp.bom'].sudo()
+
         bom_lines = []
-        for c in (components or []):
-            pid = int(c.get('product_id', 0))
-            cqty = float(c.get('qty', 0))
-            if pid and cqty > 0:
-                prod = self.env['product.product'].browse(pid)
-                bom_lines.append((0, 0, {
-                    'product_id': pid,
-                    'product_qty': cqty,
-                    'product_uom_id': prod.uom_id.id,
-                }))
+        for c in cleaned_components:
+            bom_lines.append((0, 0, {
+                'product_id': c['product_id'],
+                'product_qty': c['qty'],
+                'product_uom_id': c['uom_id'],  # UoM nativa del producto ingrediente
+            }))
 
         bom_vals = {
             'product_tmpl_id': product.product_tmpl_id.id,
@@ -262,23 +358,28 @@ class AqSimplifiedMrpApi(models.TransientModel):
             'bom_line_ids': bom_lines,
         }
 
-        # Subproductos
-        if byproducts:
-            bp_lines = []
-            for bp in byproducts:
-                bp_pid = int(bp.get('product_id', 0))
-                bp_qty = float(bp.get('qty', 0))
-                if bp_pid and bp_qty > 0:
-                    bp_prod = self.env['product.product'].browse(bp_pid)
-                    bp_lines.append((0, 0, {
-                        'product_id': bp_pid,
-                        'product_qty': bp_qty,
-                        'product_uom_id': bp_prod.uom_id.id,
-                    }))
-            if bp_lines:
-                bom_vals['byproduct_ids'] = bp_lines
+        # En algunas versiones existe product_uom_id en mrp.bom
+        if 'product_uom_id' in self.env['mrp.bom']._fields:
+            bom_vals['product_uom_id'] = product.uom_id.id  # UoM del producto terminado
 
-        bom = self.env['mrp.bom'].create(bom_vals)
+        # Subproductos
+        if cleaned_byproducts:
+            bp_lines = []
+            for bp in cleaned_byproducts:
+                bp_lines.append((0, 0, {
+                    'product_id': bp['product_id'],
+                    'product_qty': bp['qty'],
+                    'product_uom_id': bp['uom_id'],  # UoM nativa del subproducto
+                }))
+            bom_vals['byproduct_ids'] = bp_lines
+
+        try:
+            bom = Bom.create(bom_vals)
+        except ValidationError as ve:
+            raise UserError(_('No fue posible crear la lista de materiales: %s') % ve)
+        except Exception as e:
+            raise UserError(_('Error al crear la lista de materiales: %s') % e)
+
         return {
             'bom_id': bom.id,
             'created': True,
