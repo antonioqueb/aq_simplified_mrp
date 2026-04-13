@@ -53,14 +53,28 @@ class AqSimplifiedMrpApi(models.TransientModel):
     @api.model
     def _find_picking_type(self, warehouse):
         SPT = self.env['stock.picking.type']
+        # En Odoo 18 el código correcto es 'mrp_operation'
         pt = SPT.search([
-            ('code', 'in', ['mrp_operation', 'manufacture', 'mrp_manufacture']),
+            ('code', '=', 'mrp_operation'),
             ('warehouse_id', '=', warehouse.id),
         ], limit=1)
         if not pt:
+            # Fallback: buscar por nombre del almacén en la secuencia
             pt = SPT.search([
-                ('code', 'in', ['mrp_operation', 'manufacture', 'mrp_manufacture']),
+                ('code', '=', 'mrp_operation'),
+                ('warehouse_id.name', '=', warehouse.name),
             ], limit=1)
+        if not pt:
+            # Último fallback: cualquier picking type de manufactura
+            pt = SPT.search([
+                ('code', '=', 'mrp_operation'),
+            ], limit=1)
+            if pt:
+                _logger.warning(
+                    "No se encontro picking type de manufactura para almacen %s (ID %s), "
+                    "usando %s del almacen %s",
+                    warehouse.name, warehouse.id, pt.name, pt.warehouse_id.name
+                )
         return pt
 
     @api.model
