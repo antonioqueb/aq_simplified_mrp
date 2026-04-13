@@ -234,7 +234,7 @@
                 </t>
               </div>
 
-              <!-- Table header — ALIGNED -->
+              <!-- Table header -->
               <div class="o_smrp_comp_header">
                 <div>Ingrediente</div>
                 <div>Formula</div>
@@ -351,7 +351,7 @@
             </div>
           </t>
 
-          <!-- ══════════ PASO LOTS — Solo distribuir, NO re-capturar cantidad ══════════ -->
+          <!-- ══════════ PASO LOTS ══════════ -->
           <t t-if="state.step === 'lots'">
             <div class="o_smrp_container o_smrp_section">
               <h2>Distribucion de Lotes</h2>
@@ -361,14 +361,12 @@
                   <div class="o_smrp_counter">Ingrediente <t t-esc="state.compIndex + 1"/> de <t t-esc="state.components.length"/></div>
 
                   <div class="o_smrp_box o_smrp_box--big">
-                    <!-- Target banner: shows the qty_real from components step -->
                     <div class="o_smrp_lot_target">
                       <span class="target-label">Distribuir:</span>
                       <span class="target-value"><t t-esc="(c.qty_real || 0).toFixed(2)"/></span>
                       <span class="target-uom"><t t-esc="c.uom_name"/> de <strong><t t-esc="c.name"/></strong></span>
                     </div>
 
-                    <!-- Progress -->
                     <div class="o_smrp_header_flex">
                       <div class="o_smrp_name" style="font-size:14px;"><t t-esc="c.name"/></div>
                       <div class="o_smrp_progress_text">
@@ -382,7 +380,6 @@
                            t-att-style="'width:' + Math.min((assigned / (c.qty_real || 1))*100, 100) + '%'"/>
                     </div>
 
-                    <!-- Status bar with Poka-Yoke feedback -->
                     <div class="o_smrp_lot_status_bar" t-att-class="'o_smrp_lot_status_bar--' + this.getLotStatusClass(c.product_id)">
                       <span><t t-esc="this.getLotStatusMessage(c.product_id)"/></span>
                     </div>
@@ -428,7 +425,7 @@
             </div>
           </t>
 
-          <!-- ══════════ PASO REVIEW (RESUMEN) — ALIGNED TABLE ══════════ -->
+          <!-- ══════════ PASO REVIEW ══════════ -->
           <t t-if="state.step === 'review'">
             <div class="o_smrp_container o_smrp_section">
               <h2>Resumen de Produccion</h2>
@@ -500,11 +497,10 @@
                 </div>
               </div>
 
-              <!-- Components summary — ALIGNED TABLE with header -->
+              <!-- Components summary -->
               <div class="o_smrp_box" style="margin-top:14px;">
                 <div class="o_smrp_name">Ingredientes</div>
                 <div class="o_smrp_review_comp_summary">
-                  <!-- Proper header row -->
                   <div class="o_smrp_review_comp_header">
                     <div>Ingrediente</div>
                     <div>Formula</div>
@@ -541,7 +537,7 @@
                 </div>
               </t>
 
-              <!-- Actions — BLACK CONFIRM BUTTON -->
+              <!-- Actions -->
               <div class="o_smrp_actions o_smrp_actions--sticky">
                 <button class="o_smrp_btn o_smrp_btn--ghost o_smrp_btn--xl" t-on-click="() => this.backToComponentsFromReview()">← Editar ingredientes</button>
                 <button class="o_smrp_btn o_smrp_btn--ghost o_smrp_btn--xl" t-on-click="() => this.backToLots()">← Editar lotes</button>
@@ -565,24 +561,65 @@
           <!-- ══════════ DONE ══════════ -->
           <t t-if="state.step === 'done'">
             <div class="o_smrp_container o_smrp_section o_smrp_done">
-              <div class="o_smrp_done_icon">🎉</div>
-              <h2>Orden creada!</h2>
-              <div class="o_smrp_box">
-                <div>Orden: <strong><t t-esc="state.resultMoName"/></strong></div>
-                <t t-if="state.bomMessage === 'bom_created'">
-                  <div style="margin-top:8px; padding:8px 12px; background:#fef9c3; border-radius:8px; font-size:14px;">
-                    ⚡ Se creo una nueva lista de materiales para este producto.
+
+              <!-- ─── Caso exitoso: MO completada ─── -->
+              <t t-if="!state.needsForceValidate">
+                <div class="o_smrp_done_icon">🎉</div>
+                <h2>Orden creada y validada!</h2>
+                <div class="o_smrp_box">
+                  <div>Orden: <strong><t t-esc="state.resultMoName"/></strong></div>
+                  <div style="margin-top:6px;">Estado: <span class="o_smrp_list_badge success">Hecha</span></div>
+                  <t t-if="state.bomMessage === 'bom_created'">
+                    <div style="margin-top:8px; padding:8px 12px; background:#fef9c3; border-radius:8px; font-size:14px;">
+                      ⚡ Se creo una nueva lista de materiales para este producto.
+                    </div>
+                  </t>
+                  <t t-if="state.bomMessage === 'bom_existing'">
+                    <div style="margin-top:8px; padding:8px 12px; background:#dbeafe; border-radius:8px; font-size:14px;">
+                      ✓ Se uso la lista de materiales existente.
+                    </div>
+                  </t>
+                  <div style="margin-top:8px;">La produccion ha sido registrada correctamente.</div>
+                </div>
+              </t>
+
+              <!-- ─── Caso con problema: MO creada pero NO completada ─── -->
+              <t t-if="state.needsForceValidate">
+                <div class="o_smrp_done_icon">⚠️</div>
+                <h2>Orden creada — pendiente de validar</h2>
+                <div class="o_smrp_box" style="border: 3px solid var(--pk-orange); background: var(--pk-orange-bg);">
+                  <div style="font-size:16px; font-weight:800; color: var(--pk-orange-text); margin-bottom:8px;">
+                    ⚠ La orden se creo pero no se pudo marcar como "Hecha" automaticamente
                   </div>
-                </t>
-                <t t-if="state.bomMessage === 'bom_existing'">
-                  <div style="margin-top:8px; padding:8px 12px; background:#dbeafe; border-radius:8px; font-size:14px;">
-                    ✓ Se uso la lista de materiales existente.
+                  <div>Orden: <strong><t t-esc="state.resultMoName"/></strong></div>
+                  <div style="margin-top:4px;">
+                    Estado actual: <span class="o_smrp_list_badge warning"><t t-esc="state.resultMoState"/></span>
                   </div>
-                </t>
-                <div style="margin-top:8px;">La produccion ha sido registrada correctamente.</div>
-              </div>
-              <div class="o_smrp_actions o_smrp_actions--center">
-                <button class="o_smrp_btn o_smrp_btn--ghost o_smrp_btn--xl" t-on-click="() => this.openMO()">Ver orden</button>
+                  <t t-if="state.completionError">
+                    <div style="margin-top:8px; padding:10px 14px; background:rgba(255,255,255,0.7); border-radius:8px; font-size:13px; color:#333;">
+                      <strong>Detalle tecnico:</strong> <t t-esc="state.completionError"/>
+                    </div>
+                  </t>
+                  <div style="margin-top:12px; font-size:14px; color: var(--pk-orange-text);">
+                    Presiona el boton para intentar forzar la validacion. Si persiste el problema, abre la orden en Odoo y validala manualmente.
+                  </div>
+                </div>
+
+                <!-- Botón prominente de forzar validación -->
+                <div class="o_smrp_actions o_smrp_actions--center" style="margin-top:16px;">
+                  <button class="o_smrp_btn o_smrp_btn--black o_smrp_btn--xl"
+                          t-att-disabled="state.forceValidating"
+                          t-on-click="() => this.forceValidateMO()"
+                          style="min-width:280px; font-size:16px; height:56px;">
+                    <t t-if="state.forceValidating">⏳ Validando...</t>
+                    <t t-else="">🔄 FORZAR VALIDACION</t>
+                  </button>
+                </div>
+              </t>
+
+              <!-- Acciones comunes -->
+              <div class="o_smrp_actions o_smrp_actions--center" style="margin-top:16px;">
+                <button class="o_smrp_btn o_smrp_btn--ghost o_smrp_btn--xl" t-on-click="() => this.openMO()">Ver orden en Odoo</button>
                 <button class="o_smrp_btn confirm o_smrp_btn--xl" t-on-click="() => this.resetWizard()">Crear nueva orden</button>
               </div>
             </div>

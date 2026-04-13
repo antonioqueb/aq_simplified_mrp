@@ -77,6 +77,10 @@ class SimplifiedMrp extends Component {
             resultMoId: null,
             resultMoName: '',
             bomMessage: '',
+            resultMoState: '',
+            needsForceValidate: false,
+            completionError: '',
+            forceValidating: false,
 
             // List / Detail
             myProductions: [],
@@ -589,7 +593,7 @@ class SimplifiedMrp extends Component {
     backToComponents() { this.state.step = 'components'; }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // STEP 4: LOTS — Distribution only (qty_real already defined)
+    // STEP 4: LOTS
     // ═══════════════════════════════════════════════════════════════════════
     async loadLotsForCurrent() {
         const comp = this.state.components[this.state.compIndex];
@@ -635,9 +639,6 @@ class SimplifiedMrp extends Component {
         return (this.state.assignedLots[productId] || {})[lotId] || 0;
     }
 
-    /**
-     * Status class for the lot assignment progress bar area
-     */
     getLotStatusClass(productId) {
         const comp = this.state.components.find(c => c.product_id === productId);
         if (!comp) return 'empty';
@@ -677,9 +678,6 @@ class SimplifiedMrp extends Component {
         this.state.assignedLots = { ...this.state.assignedLots };
     }
 
-    /**
-     * Fill this lot with the remaining needed quantity (capped at available)
-     */
     fillRemainingLot(lotId) {
         const comp = this.state.components[this.state.compIndex];
         if (!comp) return;
@@ -688,7 +686,6 @@ class SimplifiedMrp extends Component {
         if (!lot) return;
         const currentlyAssigned = this.getLotAssignedValue(comp.product_id, lotId);
         const maxAvail = lot.qty_available;
-        // Fill with the lesser of remaining or available, added to current
         const fillQty = Math.min(remaining, maxAvail - currentlyAssigned);
         if (fillQty <= 0 && remaining <= 0) {
             this.notification.add('Ya se asigno la cantidad completa', { type: 'info' });
@@ -802,13 +799,54 @@ class SimplifiedMrp extends Component {
             this.state.resultMoId = res.mo_id || null;
             this.state.resultMoName = res.name || '';
             this.state.bomMessage = res.bom_message || '';
+            this.state.resultMoState = res.state || '';
+            this.state.needsForceValidate = res.needs_force_validate || false;
+            this.state.completionError = res.completion_error || '';
             this.state.step = 'done';
-            this.notification.add('Orden de produccion creada exitosamente', { type: 'success' });
+
+            if (res.completed) {
+                this.notification.add('Orden de produccion creada y validada exitosamente', { type: 'success' });
+            } else {
+                this.notification.add(
+                    `Orden creada pero NO se pudo marcar como hecha (estado: ${res.state}). Usa el boton "Forzar validacion".`,
+                    { type: 'warning', sticky: true }
+                );
+            }
+
             await this.loadMyProductions();
         } catch (e) {
             this.notifyError('Error creando orden de produccion', e);
         } finally {
             this.state.submitting = false;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // FORCE VALIDATE (retry)
+    // ═══════════════════════════════════════════════════════════════════════
+    async forceValidateMO() {
+        if (!this.state.resultMoId || this.state.forceValidating) return;
+        this.state.forceValidating = true;
+        try {
+            const res = await this.orm.call(
+                'aq.simplified.mrp.api', 'force_validate_mo',
+                [this.state.resultMoId], {}
+            );
+            if (res.success) {
+                this.state.needsForceValidate = false;
+                this.state.resultMoState = 'done';
+                this.state.completionError = '';
+                this.notification.add(res.message, { type: 'success' });
+                await this.loadMyProductions();
+            } else {
+                this.state.completionError = res.error_detail || '';
+                this.state.resultMoState = res.state || '';
+                this.notification.add(res.message, { type: 'danger', sticky: true });
+            }
+        } catch (e) {
+            this.notifyError('Error forzando validacion', e);
+        } finally {
+            this.state.forceValidating = false;
         }
     }
 
@@ -835,6 +873,8 @@ class SimplifiedMrp extends Component {
             components: [], byproducts: [], assignedLots: {},
             compIndex: 0, bomId: null, bomExists: false,
             lotQuery: '', resultMoId: null, resultMoName: '', bomMessage: '',
+            resultMoState: '', needsForceValidate: false, completionError: '',
+            forceValidating: false,
             compSearchQuery: '', compSearchResults: [], newCompQty: 1.0,
             bpSearchQuery: '', bpSearchResults: [], newBpQty: 1.0,
             reviewWarnings: [], submitting: false,
