@@ -354,12 +354,13 @@ class AqSimplifiedMrpApi(models.TransientModel):
         """
         Prepara la MO antes de intentar completarla:
         - Setea qty_producing
+        - Asegura lote de producto terminado
+        - Marca componentes como picked
         - Asegura move lines de producto terminado
-        - Asegura cantidades en move lines de componentes
         """
         errors = []
 
-        # 1. qty_producing — FUNDAMENTAL en Odoo 19
+        # 1. qty_producing — FUNDAMENTAL en Odoo 18/19
         try:
             if hasattr(mo, 'qty_producing'):
                 mo.qty_producing = qty
@@ -373,7 +374,30 @@ class AqSimplifiedMrpApi(models.TransientModel):
         except Exception as e:
             errors.append(f"lot_producing_id: {e}")
 
-        # 3. Move lines de producto terminado
+        # 3. Marcar TODOS los raw moves como picked
+        try:
+            for move in mo.move_raw_ids:
+                if hasattr(move, 'picked') and not move.picked:
+                    move.picked = True
+                # Asegurar que las move lines tengan cantidad
+                if move.state not in ('done', 'cancel'):
+                    if move.move_line_ids:
+                        total_ml = sum(ml.quantity for ml in move.move_line_ids)
+                        if total_ml <= 0:
+                            move.move_line_ids[0].quantity = move.product_uom_qty
+                    else:
+                        self.env['stock.move.line'].create({
+                            'move_id': move.id,
+                            'product_id': move.product_id.id,
+                            'product_uom_id': move.product_uom.id,
+                            'location_id': move.location_id.id,
+                            'location_dest_id': move.location_dest_id.id,
+                            'quantity': move.product_uom_qty,
+                        })
+        except Exception as e:
+            errors.append(f"picked/component move lines: {e}")
+
+        # 4. Move lines de producto terminado
         try:
             if mo.move_finished_ids:
                 finished_move = mo.move_finished_ids[0]
@@ -394,27 +418,6 @@ class AqSimplifiedMrpApi(models.TransientModel):
                     })
         except Exception as e:
             errors.append(f"finished move lines: {e}")
-
-        # 4. Asegurar cantidades en componentes
-        try:
-            for move in mo.move_raw_ids:
-                if move.state in ('done', 'cancel'):
-                    continue
-                if move.move_line_ids:
-                    total_ml = sum(ml.quantity for ml in move.move_line_ids)
-                    if total_ml <= 0:
-                        move.move_line_ids[0].quantity = move.product_uom_qty
-                else:
-                    self.env['stock.move.line'].create({
-                        'move_id': move.id,
-                        'product_id': move.product_id.id,
-                        'product_uom_id': move.product_uom.id,
-                        'location_id': move.location_id.id,
-                        'location_dest_id': move.location_dest_id.id,
-                        'quantity': move.product_uom_qty,
-                    })
-        except Exception as e:
-            errors.append(f"component move lines: {e}")
 
         # 5. Desbloquear si está bloqueada
         try:
@@ -860,7 +863,7 @@ class AqSimplifiedMrpApi(models.TransientModel):
             mo.action_confirm()
             mo.user_id = self.env.uid
 
-            # ─── Componentes y lotes ───────────────────────────────────
+            # ─── Componentes: ajustar cantidades y lotes ──────────────
             existing_by_pid = {m.product_id.id: m for m in mo.move_raw_ids}
 
             for item in comps_clean:
@@ -871,8 +874,10 @@ class AqSimplifiedMrpApi(models.TransientModel):
                 move = existing_by_pid.get(pid)
 
                 if move:
+                    # Ajustar la cantidad demandada
                     move.product_uom_qty = req_qty_total
                 else:
+                    # Componente no estaba en BOM, crear move
                     move = self.env['stock.move'].create({
                         'name': prod.display_name,
                         'product_id': pid,
@@ -885,9 +890,11 @@ class AqSimplifiedMrpApi(models.TransientModel):
                     })
                     existing_by_pid[pid] = move
 
+                # Limpiar move lines existentes para recrearlas con lotes correctos
                 if move.move_line_ids:
                     move.move_line_ids.unlink()
 
+                # Crear move lines con lotes y cantidades
                 if not lots_distribution:
                     self.env['stock.move.line'].create({
                         'move_id': move.id,
@@ -914,10 +921,24 @@ class AqSimplifiedMrpApi(models.TransientModel):
                             'quantity': l_qty,
                         })
 
+                # ─── CLAVE: marcar el move como picked ─────────────────
+                # En Odoo 18, si picked=False, button_mark_done no consume
+                if hasattr(move, 'picked'):
+                    move.picked = True
+
+            # Marcar TODOS los raw moves como picked
+            for move in mo.move_raw_ids:
+                if hasattr(move, 'picked'):
+                    move.picked = True
+
             try:
                 mo.action_assign()
             except Exception as e:
                 _logger.warning("Auto assign warning: %s", e)
+
+            # ─── Setear qty_producing ANTES de button_mark_done ────────
+            # Esto es FUNDAMENTAL: le dice a Odoo cuánto se produjo
+            mo.qty_producing = qty
 
             # ─── Completar MO (robusto) ───────────────────────────────
             completion = self._complete_mo_robust(mo, product, qty, finished_lot)
