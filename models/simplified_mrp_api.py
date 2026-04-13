@@ -53,28 +53,52 @@ class AqSimplifiedMrpApi(models.TransientModel):
     @api.model
     def _find_picking_type(self, warehouse):
         SPT = self.env['stock.picking.type']
-        # En Odoo 18 el código correcto es 'mrp_operation'
+
+        _logger.info(
+            "SMRP _find_picking_type: buscando para warehouse=%s (ID=%s, code=%s, company=%s)",
+            warehouse.name, warehouse.id, warehouse.code, warehouse.company_id.name
+        )
+
+        # Buscar picking type de manufactura para este almacén
         pt = SPT.search([
             ('code', '=', 'mrp_operation'),
             ('warehouse_id', '=', warehouse.id),
         ], limit=1)
-        if not pt:
-            # Fallback: buscar por nombre del almacén en la secuencia
-            pt = SPT.search([
-                ('code', '=', 'mrp_operation'),
-                ('warehouse_id.name', '=', warehouse.name),
-            ], limit=1)
-        if not pt:
-            # Último fallback: cualquier picking type de manufactura
-            pt = SPT.search([
-                ('code', '=', 'mrp_operation'),
-            ], limit=1)
-            if pt:
-                _logger.warning(
-                    "No se encontro picking type de manufactura para almacen %s (ID %s), "
-                    "usando %s del almacen %s",
-                    warehouse.name, warehouse.id, pt.name, pt.warehouse_id.name
-                )
+
+        if pt:
+            _logger.info(
+                "SMRP: encontrado picking type %s (ID=%s) con secuencia prefix=%s",
+                pt.name, pt.id, pt.sequence_id.prefix if pt.sequence_id else 'SIN SECUENCIA'
+            )
+            return pt
+
+        # Debug: listar TODOS los picking types de manufactura
+        all_pts = SPT.search([('code', '=', 'mrp_operation')])
+        for p in all_pts:
+            _logger.warning(
+                "SMRP: picking type disponible: %s (ID=%s) warehouse=%s (ID=%s) prefix=%s",
+                p.name, p.id,
+                p.warehouse_id.name if p.warehouse_id else 'NINGUNO',
+                p.warehouse_id.id if p.warehouse_id else 0,
+                p.sequence_id.prefix if p.sequence_id else 'SIN SECUENCIA'
+            )
+
+        # Buscar por nombre que contenga el código del almacén
+        pt = SPT.search([
+            ('code', '=', 'mrp_operation'),
+            ('name', 'ilike', warehouse.code),
+        ], limit=1)
+        if pt:
+            _logger.info("SMRP: encontrado por nombre: %s (warehouse_id=%s)", pt.name, pt.warehouse_id.id)
+            return pt
+
+        # Último fallback
+        pt = SPT.search([('code', '=', 'mrp_operation')], limit=1)
+        if pt:
+            _logger.warning(
+                "SMRP: FALLBACK - usando %s del almacen %s para MO de %s",
+                pt.name, pt.warehouse_id.name, warehouse.name
+            )
         return pt
 
     @api.model
