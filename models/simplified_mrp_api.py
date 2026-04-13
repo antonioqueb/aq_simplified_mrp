@@ -348,20 +348,32 @@ class AqSimplifiedMrpApi(models.TransientModel):
             'message': _('Se creo una nueva lista de materiales para este producto.'),
         }
 
-    # ─── Completar MO (robusto, multi-estrategia) ─────────────────────────
+    # ─── Completar MO (robusto, multi-estrategia para Odoo 19) ──────────
     @api.model
-    def _complete_mo_robust(self, mo, product, qty, finished_lot):
+    def _prepare_mo_for_completion(self, mo, product, qty, finished_lot):
         """
-        Intenta completar la MO usando múltiples estrategias.
-        Retorna dict con:
-          - completed: bool
-          - state: str (estado final de la MO)
-          - error_detail: str (detalle del error si no se completó)
-          - strategy_used: str (qué estrategia funcionó)
+        Prepara la MO antes de intentar completarla:
+        - Setea qty_producing
+        - Asegura move lines de producto terminado
+        - Asegura cantidades en move lines de componentes
         """
-        errors_log = []
+        errors = []
 
-        # ─── Preparar move lines de producto terminado ─────────────
+        # 1. qty_producing — FUNDAMENTAL en Odoo 19
+        try:
+            if hasattr(mo, 'qty_producing'):
+                mo.qty_producing = qty
+        except Exception as e:
+            errors.append(f"qty_producing: {e}")
+
+        # 2. Lote de producto terminado
+        try:
+            if finished_lot and hasattr(mo, 'lot_producing_id'):
+                mo.lot_producing_id = finished_lot.id
+        except Exception as e:
+            errors.append(f"lot_producing_id: {e}")
+
+        # 3. Move lines de producto terminado
         try:
             if mo.move_finished_ids:
                 finished_move = mo.move_finished_ids[0]
@@ -380,76 +392,161 @@ class AqSimplifiedMrpApi(models.TransientModel):
                         'lot_id': finished_lot.id if finished_lot else False,
                         'quantity': qty,
                     })
-        except Exception as prep_err:
-            errors_log.append(f"Preparacion move lines: {prep_err}")
-            _logger.warning("Error preparando finished move lines: %s", prep_err)
+        except Exception as e:
+            errors.append(f"finished move lines: {e}")
 
-        # ─── Asegurar qty_producing en la MO ───────────────────────
+        # 4. Asegurar cantidades en componentes
         try:
-            if hasattr(mo, 'qty_producing'):
-                mo.qty_producing = qty
-        except Exception as qp_err:
-            errors_log.append(f"qty_producing: {qp_err}")
-            _logger.warning("Error seteando qty_producing: %s", qp_err)
+            for move in mo.move_raw_ids:
+                if move.state in ('done', 'cancel'):
+                    continue
+                if move.move_line_ids:
+                    total_ml = sum(ml.quantity for ml in move.move_line_ids)
+                    if total_ml <= 0:
+                        move.move_line_ids[0].quantity = move.product_uom_qty
+                else:
+                    self.env['stock.move.line'].create({
+                        'move_id': move.id,
+                        'product_id': move.product_id.id,
+                        'product_uom_id': move.product_uom.id,
+                        'location_id': move.location_id.id,
+                        'location_dest_id': move.location_dest_id.id,
+                        'quantity': move.product_uom_qty,
+                    })
+        except Exception as e:
+            errors.append(f"component move lines: {e}")
 
-        # ─── Estrategia 1: Desbloquear + button_mark_done ──────────
+        # 5. Desbloquear si está bloqueada
         try:
-            # Desbloquear si está bloqueada
             if mo.is_locked:
                 try:
                     mo.action_toggle_is_locked()
                 except Exception:
                     mo.is_locked = False
+        except Exception as e:
+            errors.append(f"unlock: {e}")
 
-            mo.button_mark_done()
+        return errors
+
+    @api.model
+    def _complete_mo_robust(self, mo, product, qty, finished_lot):
+        """
+        Intenta completar la MO usando múltiples estrategias.
+        
+        En Odoo 19, button_mark_done() deja la MO en 'to_close'.
+        Para pasar a 'done' se necesita llamar button_mark_done() DE NUEVO
+        cuando la MO está en 'to_close', o usar el backorder wizard con
+        action_close_mo().
+        
+        Retorna dict con:
+          - completed: bool
+          - state: str (estado final de la MO)
+          - error_detail: str (detalle del error si no se completó)
+          - strategy_used: str (qué estrategia funcionó)
+        """
+        errors_log = []
+
+        # ─── Preparación ───────────────────────────────────────────
+        prep_errors = self._prepare_mo_for_completion(mo, product, qty, finished_lot)
+        if prep_errors:
+            for pe in prep_errors:
+                _logger.warning("Prep warning: %s", pe)
+
+        # ─── Helper: check if done after each attempt ──────────────
+        def _is_done():
             mo.invalidate_recordset()
-            if mo.state == 'done':
+            return mo.state == 'done'
+
+        # ═══════════════════════════════════════════════════════════
+        # Estrategia 1: button_mark_done (primera llamada)
+        #   En Odoo 19 esto típicamente lleva a 'to_close'
+        # ═══════════════════════════════════════════════════════════
+        try:
+            result = mo.button_mark_done()
+            if _is_done():
                 return {
-                    'completed': True,
-                    'state': 'done',
-                    'error_detail': '',
-                    'strategy_used': 'button_mark_done',
+                    'completed': True, 'state': 'done',
+                    'error_detail': '', 'strategy_used': 'button_mark_done',
                 }
-            errors_log.append(f"button_mark_done ejecuto sin error pero estado={mo.state}")
+
+            # button_mark_done puede devolver un wizard action dict
+            if isinstance(result, dict) and result.get('res_model'):
+                try:
+                    wiz_model = result['res_model']
+                    wiz_id = result.get('res_id')
+                    ctx = result.get('context', {})
+                    if wiz_id:
+                        wiz = self.env[wiz_model].with_context(**ctx).browse(wiz_id)
+                    else:
+                        wiz = self.env[wiz_model].with_context(**ctx).create({})
+
+                    # Intentar los métodos comunes del wizard
+                    for method_name in ['process', 'action_close_mo', 'action_produce', 'action_confirm']:
+                        if hasattr(wiz, method_name):
+                            getattr(wiz, method_name)()
+                            if _is_done():
+                                return {
+                                    'completed': True, 'state': 'done',
+                                    'error_detail': '',
+                                    'strategy_used': f'button_mark_done+wizard.{method_name}',
+                                }
+                            break
+                except Exception as wiz_err:
+                    errors_log.append(f"wizard from button_mark_done: {wiz_err}")
+
+            errors_log.append(f"button_mark_done: estado={mo.state}")
         except Exception as e1:
             errors_log.append(f"button_mark_done: {e1}")
-            _logger.warning("Estrategia 1 (button_mark_done) fallo: %s", e1)
+            _logger.warning("Estrategia 1 fallo: %s", e1)
 
-        # ─── Estrategia 2: Wizard de backorder (immediate_production) ─
+        # ═══════════════════════════════════════════════════════════
+        # Estrategia 2: Si está en 'to_close', llamar button_mark_done
+        #   DE NUEVO — en Odoo 19 esto cierra la MO
+        # ═══════════════════════════════════════════════════════════
         try:
             mo.invalidate_recordset()
-            if mo.state != 'done':
-                # Algunos Odoo devuelven un wizard al llamar button_mark_done
-                # Intentamos buscar si hay wizard pendiente
-                wizard_model = 'mrp.immediate.production'
-                if wizard_model in self.env:
-                    # Crear wizard y procesar
-                    wiz = self.env[wizard_model].with_context(
-                        active_id=mo.id,
-                        active_ids=[mo.id],
-                    ).create({})
-                    if hasattr(wiz, 'process'):
-                        wiz.process()
-                    elif hasattr(wiz, 'action_confirm'):
-                        wiz.action_confirm()
-
-                    mo.invalidate_recordset()
-                    if mo.state == 'done':
-                        return {
-                            'completed': True,
-                            'state': 'done',
-                            'error_detail': '',
-                            'strategy_used': 'immediate_production_wizard',
-                        }
-                    errors_log.append(f"immediate_production wizard ejecuto pero estado={mo.state}")
+            if mo.state == 'to_close':
+                _logger.info("MO %s en to_close, llamando button_mark_done por segunda vez", mo.name)
+                result2 = mo.button_mark_done()
+                if _is_done():
+                    return {
+                        'completed': True, 'state': 'done',
+                        'error_detail': '',
+                        'strategy_used': 'double_button_mark_done',
+                    }
+                # Si devuelve wizard de nuevo
+                if isinstance(result2, dict) and result2.get('res_model'):
+                    try:
+                        wiz_model = result2['res_model']
+                        wiz_id = result2.get('res_id')
+                        ctx = result2.get('context', {})
+                        if wiz_id:
+                            wiz = self.env[wiz_model].with_context(**ctx).browse(wiz_id)
+                        else:
+                            wiz = self.env[wiz_model].with_context(**ctx).create({})
+                        for method_name in ['process', 'action_close_mo', 'action_produce', 'action_confirm']:
+                            if hasattr(wiz, method_name):
+                                getattr(wiz, method_name)()
+                                if _is_done():
+                                    return {
+                                        'completed': True, 'state': 'done',
+                                        'error_detail': '',
+                                        'strategy_used': f'double_mark_done+wizard.{method_name}',
+                                    }
+                                break
+                    except Exception as wiz2_err:
+                        errors_log.append(f"wizard from 2nd button_mark_done: {wiz2_err}")
+                errors_log.append(f"double_button_mark_done: estado={mo.state}")
         except Exception as e2:
-            errors_log.append(f"immediate_production wizard: {e2}")
-            _logger.warning("Estrategia 2 (immediate_production) fallo: %s", e2)
+            errors_log.append(f"double_button_mark_done: {e2}")
+            _logger.warning("Estrategia 2 fallo: %s", e2)
 
-        # ─── Estrategia 3: Forzar backorder wizard ─────────────────
+        # ═══════════════════════════════════════════════════════════
+        # Estrategia 3: Backorder wizard con contexto explícito
+        # ═══════════════════════════════════════════════════════════
         try:
             mo.invalidate_recordset()
-            if mo.state != 'done':
+            if mo.state in ('to_close', 'progress', 'confirmed'):
                 backorder_model = 'mrp.production.backorder'
                 if backorder_model in self.env:
                     ctx = {
@@ -457,29 +554,55 @@ class AqSimplifiedMrpApi(models.TransientModel):
                         'active_ids': [mo.id],
                         'button_mark_done_production_ids': [mo.id],
                     }
-                    try:
-                        wiz = self.env[backorder_model].with_context(**ctx).create({})
-                        if hasattr(wiz, 'action_close_mo'):
-                            wiz.action_close_mo()
-                        elif hasattr(wiz, 'action_produce'):
-                            wiz.action_produce()
-
-                        mo.invalidate_recordset()
-                        if mo.state == 'done':
-                            return {
-                                'completed': True,
-                                'state': 'done',
-                                'error_detail': '',
-                                'strategy_used': 'backorder_wizard',
-                            }
-                        errors_log.append(f"backorder wizard ejecuto pero estado={mo.state}")
-                    except Exception as bw_err:
-                        errors_log.append(f"backorder wizard create/action: {bw_err}")
+                    wiz = self.env[backorder_model].with_context(**ctx).create({})
+                    # Probar todos los métodos posibles
+                    for method_name in ['action_close_mo', 'action_produce', 'process', 'action_confirm']:
+                        if hasattr(wiz, method_name):
+                            try:
+                                getattr(wiz, method_name)()
+                                if _is_done():
+                                    return {
+                                        'completed': True, 'state': 'done',
+                                        'error_detail': '',
+                                        'strategy_used': f'backorder_wizard.{method_name}',
+                                    }
+                            except Exception as m_err:
+                                errors_log.append(f"backorder.{method_name}: {m_err}")
+                    errors_log.append(f"backorder wizard: estado={mo.state}")
         except Exception as e3:
-            errors_log.append(f"backorder wizard setup: {e3}")
-            _logger.warning("Estrategia 3 (backorder wizard) fallo: %s", e3)
+            errors_log.append(f"backorder wizard: {e3}")
+            _logger.warning("Estrategia 3 fallo: %s", e3)
 
-        # ─── Estrategia 4: Forzar moves a done manualmente ────────
+        # ═══════════════════════════════════════════════════════════
+        # Estrategia 4: immediate.production wizard
+        # ═══════════════════════════════════════════════════════════
+        try:
+            mo.invalidate_recordset()
+            if mo.state != 'done':
+                immediate_model = 'mrp.immediate.production'
+                if immediate_model in self.env:
+                    wiz = self.env[immediate_model].with_context(
+                        active_id=mo.id, active_ids=[mo.id],
+                    ).create({})
+                    for method_name in ['process', 'action_confirm', 'generate_produce']:
+                        if hasattr(wiz, method_name):
+                            try:
+                                getattr(wiz, method_name)()
+                                if _is_done():
+                                    return {
+                                        'completed': True, 'state': 'done',
+                                        'error_detail': '',
+                                        'strategy_used': f'immediate.{method_name}',
+                                    }
+                            except Exception:
+                                pass
+                    errors_log.append(f"immediate wizard: estado={mo.state}")
+        except Exception as e4:
+            errors_log.append(f"immediate wizard: {e4}")
+
+        # ═══════════════════════════════════════════════════════════
+        # Estrategia 5: Forzar moves a done + action_done en la MO
+        # ═══════════════════════════════════════════════════════════
         try:
             mo.invalidate_recordset()
             if mo.state != 'done':
@@ -492,26 +615,70 @@ class AqSimplifiedMrpApi(models.TransientModel):
                         move.quantity = move.product_uom_qty
                         move._action_done()
 
-                # Intentar action_done o write state
-                if hasattr(mo, 'action_done') and mo.state != 'done':
-                    mo.action_done()
-
-                mo.invalidate_recordset()
-                if mo.state == 'done':
+                if _is_done():
                     return {
-                        'completed': True,
-                        'state': 'done',
+                        'completed': True, 'state': 'done',
                         'error_detail': '',
                         'strategy_used': 'force_moves_done',
                     }
-                errors_log.append(f"force_moves_done ejecuto pero estado={mo.state}")
-        except Exception as e4:
-            errors_log.append(f"force_moves_done: {e4}")
-            _logger.warning("Estrategia 4 (force moves) fallo: %s", e4)
+
+                # Último intento: button_mark_done después de forzar moves
+                try:
+                    mo.button_mark_done()
+                    if _is_done():
+                        return {
+                            'completed': True, 'state': 'done',
+                            'error_detail': '',
+                            'strategy_used': 'force_moves+button_mark_done',
+                        }
+                except Exception:
+                    pass
+
+                errors_log.append(f"force_moves_done: estado={mo.state}")
+        except Exception as e5:
+            errors_log.append(f"force_moves_done: {e5}")
+            _logger.warning("Estrategia 5 fallo: %s", e5)
+
+        # ═══════════════════════════════════════════════════════════
+        # Estrategia 6 (último recurso): SQL directo para to_close→done
+        # Solo se usa cuando TODAS las demás fallaron y la MO está
+        # en to_close (todos los moves ya están done)
+        # ═══════════════════════════════════════════════════════════
+        try:
+            mo.invalidate_recordset()
+            if mo.state == 'to_close':
+                # Verificar que todos los moves estén done
+                all_raw_done = all(m.state in ('done', 'cancel') for m in mo.move_raw_ids)
+                all_fin_done = all(m.state in ('done', 'cancel') for m in mo.move_finished_ids)
+                if all_raw_done and all_fin_done:
+                    _logger.warning(
+                        "MO %s: forzando state=done via SQL (todos los moves estan done)",
+                        mo.name
+                    )
+                    self.env.cr.execute(
+                        "UPDATE mrp_production SET state = 'done', date_finished = NOW() "
+                        "WHERE id = %s AND state = 'to_close'",
+                        (mo.id,)
+                    )
+                    mo.invalidate_recordset()
+                    if mo.state == 'done':
+                        return {
+                            'completed': True, 'state': 'done',
+                            'error_detail': '',
+                            'strategy_used': 'sql_force_done',
+                        }
+                    errors_log.append("SQL update no cambio el estado")
+                else:
+                    errors_log.append(
+                        f"to_close pero moves no done: raw={all_raw_done} fin={all_fin_done}"
+                    )
+        except Exception as e6:
+            errors_log.append(f"sql_force: {e6}")
+            _logger.warning("Estrategia 6 (SQL) fallo: %s", e6)
 
         # ─── Ninguna estrategia funcionó ───────────────────────────
         mo.invalidate_recordset()
-        error_summary = " | ".join(errors_log[-4:])  # últimos 4 errores
+        error_summary = " | ".join(errors_log[-5:])
         _logger.error(
             "MO %s (ID %s) no pudo completarse. Estado final: %s. Errores: %s",
             mo.name, mo.id, mo.state, error_summary
@@ -547,47 +714,6 @@ class AqSimplifiedMrpApi(models.TransientModel):
         product = mo.product_id
         qty = mo.product_qty
         finished_lot = mo.lot_producing_id or None
-
-        # Asegurar que las move lines de producto terminado estén correctas
-        try:
-            if mo.move_finished_ids:
-                finished_move = mo.move_finished_ids[0]
-                if not finished_move.move_line_ids:
-                    self.env['stock.move.line'].create({
-                        'move_id': finished_move.id,
-                        'product_id': product.id,
-                        'product_uom_id': product.uom_id.id,
-                        'location_id': mo.location_src_id.id,
-                        'location_dest_id': mo.location_dest_id.id,
-                        'lot_id': finished_lot.id if finished_lot else False,
-                        'quantity': qty,
-                    })
-                else:
-                    for ml in finished_move.move_line_ids:
-                        ml.quantity = qty
-                        if finished_lot and not ml.lot_id:
-                            ml.lot_id = finished_lot.id
-
-            # Asegurar cantidades en move lines de componentes
-            for move in mo.move_raw_ids:
-                if move.state in ('done', 'cancel'):
-                    continue
-                if move.move_line_ids:
-                    total_ml = sum(ml.quantity for ml in move.move_line_ids)
-                    if total_ml <= 0:
-                        # Poner la cantidad requerida en la primera move line
-                        move.move_line_ids[0].quantity = move.product_uom_qty
-                else:
-                    self.env['stock.move.line'].create({
-                        'move_id': move.id,
-                        'product_id': move.product_id.id,
-                        'product_uom_id': move.product_uom.id,
-                        'location_id': move.location_id.id,
-                        'location_dest_id': move.location_dest_id.id,
-                        'quantity': move.product_uom_qty,
-                    })
-        except Exception as prep_err:
-            _logger.warning("force_validate_mo - prep error: %s", prep_err)
 
         result = self._complete_mo_robust(mo, product, qty, finished_lot)
 
